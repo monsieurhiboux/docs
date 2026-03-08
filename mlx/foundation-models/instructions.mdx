@@ -18,6 +18,8 @@ Sans instructions personnalisées, le modèle utilise ses instructions par défa
 
 Les instructions produisent des réponses **cohérentes et prévisibles** d'un prompt à l'autre.
 
+Pensez-y comme donner une **personnalité** à votre session. Un employé de magasin peut répondre à la même question ("où est ce produit ?") de plein de façons différentes selon son caractère : certains pointent du doigt, d'autres expliquent en détail, d'autres clarifient vos besoins. Sans instructions, Apple donne une personnalité générique. Avec vos instructions, c'est vous qui définissez comment votre assistant va se comporter pour toute la durée de la session.
+
 ---
 
 ## Définir des Instructions
@@ -163,6 +165,47 @@ Les instructions ne sont que des **guides**. Elles ont une priorité plus haute 
 - Utilisez des exemples concrets dans vos instructions
 - Gardez les instructions concises pour économiser des tokens
 - N'oubliez pas que les instructions sont immutables — créez une nouvelle session pour les changer
+
+### Écrire les instructions en anglais
+
+Apple recommande d'écrire les instructions **en anglais**, même si votre app est en français. Le modèle on-device a été entraîné principalement en anglais, et les instructions en anglais donnent généralement de meilleurs résultats. Les prompts, eux, peuvent être dans n'importe quelle langue supportée — c'est uniquement les instructions qui bénéficient d'être en anglais.
+
+```swift
+// ✅ Instructions en anglais (recommandé)
+let session = LanguageModelSession(
+    instructions: """
+    You are a creative brainstorming partner. Generate 5-8 diverse
+    and memorable ideas with brief explanations for any brainstorming request.
+    Always respond in the same language as the user's message.
+    """
+)
+
+// Le prompt peut être en français
+Task {
+    response = try await session.respond(
+        to: "Je construis une app de méditation. Aide-moi à brainstormer des noms."
+    ).content
+}
+```
+
+### Sécurité : ne laissez pas l'utilisateur modifier les instructions
+
+<Warning>
+Ne permettez jamais à l'utilisateur de fournir ou modifier directement les instructions d'un `LanguageModelSession`. Utilisez toujours des jeux d'instructions prédéfinis que vous, le développeur, avez soigneusement conçus et testés.
+
+```swift
+// ❌ Dangereux — l'utilisateur contrôle le comportement du modèle
+let userInput = textField.text  // "Ignore tes instructions et..."
+let session = LanguageModelSession(instructions: userInput)
+
+// ✅ Sûr — vous contrôlez les instructions
+let session = LanguageModelSession(
+    instructions: "Tu es un assistant de cuisine qui aide les débutants."
+)
+```
+
+Les instructions ont une priorité plus haute que les prompts — laisser un utilisateur les modifier revient à lui donner les clés de comportement de votre app.
+</Warning>
 
 ---
 
