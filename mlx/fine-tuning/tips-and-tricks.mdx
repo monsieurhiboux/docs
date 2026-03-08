@@ -1,0 +1,187 @@
+---
+title: "Tips & Astuces"
+description: "Leçons apprises par la communauté pour optimiser le fine-tuning MLX"
+icon: "lightbulb"
+---
+
+# Tips & Astuces pour le Fine-Tuning MLX
+
+Retours d'expérience collectés depuis [r/LocalLLaMA](https://reddit.com/r/LocalLLaMA/comments/18wabkc), [Towards Data Science](https://towardsdatascience.com/lora-fine-tuning-on-your-apple-silicon-macbook), et la communauté MLX.
+
+---
+
+## Gestion de la Mémoire
+
+<AccordionGroup>
+  <Accordion title="Fermez tout avant d'entraîner" icon="x">
+    La mémoire unifiée est partagée entre toutes les apps. Firefox avec quelques onglets peut consommer 4-6 GB. Pendant le fine-tuning :
+    - Fermez le navigateur
+    - Fermez Slack, Discord, les apps de messagerie
+    - Fermez les autres IDEs
+
+    Sur MacBook Air M1 16GB, cela peut faire la différence entre une erreur mémoire et un entraînement réussi.
+  </Accordion>
+
+  <Accordion title="Réduire lora-layers pour économiser la RAM" icon="layers">
+    Le paramètre `--lora-layers` contrôle combien de couches sont fine-tunées. Moins de couches = moins de RAM pour la backpropagation.
+
+    ```bash
+    # Par défaut : 16 couches
+    mlx_lm.lora --model ... --lora-layers 16 ...
+
+    # Économique : 4-8 couches (toujours efficace)
+    mlx_lm.lora --model ... --lora-layers 4 ...
+    ```
+
+    En pratique, 8 couches offre un bon compromis qualité/mémoire pour la plupart des tâches.
+  </Accordion>
+
+  <Accordion title="Réduire batch-size" icon="compress">
+    Sur les machines avec peu de RAM, réduisez le batch size :
+
+    ```bash
+    # Minimum absolu (une seule ligne à la fois)
+    mlx_lm.lora --model ... --batch-size 1 ...
+    ```
+
+    Compensez avec plus d'itérations pour maintenir la quantité totale de données vues.
+  </Accordion>
+
+  <Accordion title="Filtrer les exemples longs" icon="scissors">
+    Les lignes dépassant ~3500 tokens provoquent des erreurs mémoire. Filtrez votre dataset en amont (voir [Préparation des Données](/mlx/fine-tuning/dataset-preparation)).
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Optimiser la Qualité
+
+### Choisir le bon learning rate
+
+```bash
+# Trop élevé → instabilité, loss qui oscille
+--learning-rate 1e-3   # ❌ Trop élevé pour LoRA
+
+# Plage recommandée pour LoRA
+--learning-rate 1e-5   # ✓ Conservateur, stable
+--learning-rate 5e-5   # ✓ Rapide mais risqué
+--learning-rate 1e-4   # ⚠️  Limité, surveiller
+```
+
+### Rang LoRA (r) — le trade-off
+
+```yaml
+# rank faible (r=4) : moins de paramètres, apprentissage plus simple
+lora_parameters:
+  rank: 4    # Bon pour des adaptations simples (style, format)
+
+# rank moyen (r=8) : recommandé pour la plupart des cas
+lora_parameters:
+  rank: 8    # ✓ Sweet spot
+
+# rank élevé (r=16) : plus expressif, mais plus de RAM
+lora_parameters:
+  rank: 16   # Pour des adaptations complexes
+```
+
+### Surveiller l'overfitting
+
+```bash
+# Ajouter une validation fréquente
+mlx_lm.lora \
+  --model ... \
+  --steps-per-eval 50 \   # Évaluer toutes les 50 steps
+  --val-batches 25 \       # Sur 25 batches de validation
+  --save-every 100         # Sauvegarder des checkpoints réguliers
+```
+
+Si la `train loss` continue de baisser mais que la `val loss` remonte → overfitting → arrêtez plus tôt (`--iters` plus bas).
+
+---
+
+## Identifier le bon nombre d'itérations
+
+| Taille dataset | Itérations recommandées | Durée estimée (M2 Pro) |
+|----------------|------------------------|------------------------|
+| 100–200 lignes | 100–200 | 5–15 min |
+| 300–600 lignes | 200–500 | 15–45 min |
+| 1000+ lignes | 500–1000+ | 1–3h |
+| 5000+ lignes | 1000–3000 | 3–10h |
+
+<Note>
+Une validation loss qui stagne ou remonte signifie que vous avez atteint le maximum de ce que vos données peuvent apporter. Plus d'itérations ne fera qu'overfitter.
+</Note>
+
+---
+
+## Choisir le bon modèle de base
+
+| Modèle | Taille | RAM (4-bit) | Points forts |
+|--------|--------|-------------|-------------|
+| Phi-3.5-mini | 3.8B | ~3 GB | Ultra rapide, idéal pour tester |
+| Mistral-7B-v0.3 | 7B | ~4 GB | Très bon rapport qualité/vitesse |
+| Llama-3.1-8B | 8B | ~5 GB | Excellent suiveur d'instructions |
+| Mistral-Small-24B | 24B | ~13 GB | Qualité GPT-4, recommandé M3+ |
+| Llama-3.1-70B | 70B | ~40 GB | État de l'art, Mac Pro/Studio |
+
+---
+
+## Template de Chat — Alignement critique
+
+Chaque modèle utilise un template de chat différent. MLX applique automatiquement le bon template si votre dataset est en format `messages`. Mais pour les formats `text` ou `completions`, il faut l'appliquer manuellement :
+
+```python
+# Vérifier le template d'un modèle
+from mlx_lm import load
+_, tokenizer = load("mistralai/Mistral-7B-Instruct-v0.3")
+print(tokenizer.chat_template)
+```
+
+**Mistral** utilise `[INST]...[/INST]`
+**Llama 3** utilise `<|begin_of_text|><|start_header_id|>...`
+**Phi-3** utilise `<|user|>\n...<|end|>`
+
+---
+
+## Debug : Interpréter les métriques
+
+```
+Iter 10: Train loss 2.84, It/sec 2.1    ← début normal (loss élevée)
+Iter 50: Train loss 2.12, It/sec 2.0    ← apprentissage en cours
+Iter 100: Train loss 1.78, Val loss 1.85 ← bon signe : val ≈ train
+Iter 200: Train loss 1.52, Val loss 1.53 ← convergence saine
+Iter 300: Train loss 1.41, Val loss 1.65 ← léger overfitting, attention
+Iter 400: Train loss 1.38, Val loss 1.89 ← overfitting clair → STOP
+```
+
+**Règle empirique** : arrêtez quand `val loss > train loss * 1.15`
+
+---
+
+## Outil utile : llm-mlx de Simon Willison
+
+Si vous préférez une interface CLI unifiée, le plugin `llm-mlx` de Simon Willison permet de gérer plusieurs modèles et backends depuis une seule commande :
+
+```bash
+pip install llm llm-mlx
+
+# Lister les modèles disponibles
+llm mlx list
+
+# Télécharger et utiliser un modèle
+llm mlx download-model mlx-community/Mistral-Small-24B-Instruct-2501-4bit
+llm -m mlx-community/Mistral-Small-24B-Instruct-2501-4bit "Raconte-moi une histoire"
+```
+
+> Source : [Simon Willison's newsletter](https://simonwillison.net/2025/Feb/15/llm-mlx/) — publié le 15 février 2025
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Local LLMs — Vue d'ensemble" icon="server" href="/mlx/local-llms/overview">
+    Comparer MLX, Ollama, llama.cpp et CoreML →
+  </Card>
+  <Card title="Intégration Swift" icon="swift" href="/mlx/local-llms/swift-integration">
+    Embarquer MLX dans vos apps iOS/macOS →
+  </Card>
+</CardGroup>

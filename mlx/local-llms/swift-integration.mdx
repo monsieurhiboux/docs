@@ -1,0 +1,256 @@
+---
+title: "Intégration Swift & CoreML"
+description: "Embarquer des LLMs dans vos apps iOS et macOS avec MLX Swift et CoreML"
+icon: "swift"
+---
+
+# LLMs dans vos Apps Swift
+
+Deux approches principales pour intégrer un LLM dans une app iOS/macOS :
+1. **MLX Swift** — via le framework MLX directement (macOS, visionOS)
+2. **CoreML** — le framework officiel Apple pour l'on-device ML (iOS, macOS, tvOS)
+
+---
+
+## Option 1 : MLX Swift
+
+[ml-explore/mlx-swift-examples](https://github.com/ml-explore/mlx-swift-examples) (2.4k ⭐) fournit des exemples complets et un package Swift officiel.
+
+### Installation via Swift Package Manager
+
+```swift
+// Package.swift
+dependencies: [
+    .package(
+        url: "https://github.com/ml-explore/mlx-swift",
+        from: "0.21.0"
+    ),
+    .package(
+        url: "https://github.com/ml-explore/mlx-swift-examples",
+        branch: "main"
+    )
+]
+```
+
+Ou via Xcode : **File → Add Package Dependencies** → `https://github.com/ml-explore/mlx-swift`
+
+### Générer du texte en quelques lignes
+
+```swift
+import MLX
+import MLXLLM
+import MLXRandom
+
+@MainActor
+class LLMViewModel: ObservableObject {
+    @Published var output = ""
+    @Published var isLoading = false
+
+    private var runner: LLMRunner?
+
+    func loadModel() async throws {
+        // Charger un modèle MLX depuis Hugging Face
+        let config = ModelConfiguration(
+            id: "mlx-community/Llama-3.2-3B-Instruct-4bit"
+        )
+        runner = try await LLMRunner(configuration: config)
+    }
+
+    func generate(prompt: String) async {
+        isLoading = true
+        output = ""
+
+        guard let runner else { return }
+
+        let messages = [
+            ["role": "user", "content": prompt]
+        ]
+
+        do {
+            for await token in try await runner.generate(messages: messages) {
+                output += token
+            }
+        } catch {
+            output = "Erreur : \(error.localizedDescription)"
+        }
+
+        isLoading = false
+    }
+}
+```
+
+### Vue SwiftUI complète
+
+```swift
+import SwiftUI
+import MLXLLM
+
+struct LLMChatView: View {
+    @StateObject private var viewModel = LLMViewModel()
+    @State private var userInput = ""
+
+    var body: some View {
+        VStack(spacing: 16) {
+            // Zone de sortie
+            ScrollView {
+                Text(viewModel.output.isEmpty ? "La réponse apparaîtra ici..." : viewModel.output)
+                    .padding()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .background(Color(.secondarySystemBackground))
+            .cornerRadius(12)
+
+            // Zone de saisie
+            HStack {
+                TextField("Posez votre question...", text: $userInput)
+                    .textFieldStyle(.roundedBorder)
+
+                Button("Envoyer") {
+                    let prompt = userInput
+                    userInput = ""
+                    Task {
+                        await viewModel.generate(prompt: prompt)
+                    }
+                }
+                .disabled(viewModel.isLoading || userInput.isEmpty)
+            }
+        }
+        .padding()
+        .task {
+            try? await viewModel.loadModel()
+        }
+    }
+}
+```
+
+---
+
+## Option 2 : CoreML On-Device
+
+CoreML est le framework ML d'Apple pour l'inférence on-device. Il supporte maintenant les LLMs depuis iOS 18 / macOS 15.
+
+### Convertir un modèle en CoreML
+
+```python
+# Installer les outils de conversion
+pip install coremltools transformers
+
+import coremltools as ct
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+# Charger le modèle (exemple avec un petit LLM)
+model_id = "microsoft/Phi-3-mini-4k-instruct"
+model = AutoModelForCausalLM.from_pretrained(model_id)
+tokenizer = AutoTokenizer.from_pretrained(model_id)
+
+# Convertir en CoreML
+mlmodel = ct.convert(
+    model,
+    convert_to="mlprogram",
+    compute_precision=ct.precision.FLOAT16,
+    minimum_deployment_target=ct.target.iOS18
+)
+
+mlmodel.save("Phi3Mini.mlpackage")
+```
+
+### Intégration dans Xcode
+
+```swift
+import CoreML
+import NaturalLanguage
+
+class CoreMLLLMEngine {
+    private var model: MLModel?
+    private var tokenizer: NLTokenizer
+
+    init() {
+        tokenizer = NLTokenizer(unit: .word)
+    }
+
+    func load() throws {
+        // Charger le modèle .mlpackage
+        let config = MLModelConfiguration()
+        config.computeUnits = .cpuAndNeuralEngine  // Utiliser le Neural Engine
+
+        let modelURL = Bundle.main.url(forResource: "Phi3Mini", withExtension: "mlpackage")!
+        model = try MLModel(contentsOf: modelURL, configuration: config)
+    }
+
+    func generate(prompt: String, maxTokens: Int = 200) throws -> String {
+        guard let model else { throw LLMError.modelNotLoaded }
+
+        // Préparation des inputs (simplifié)
+        let inputFeatures = try MLDictionaryFeatureProvider(dictionary: [
+            "input_ids": MLMultiArray(/* tokens */)
+        ])
+
+        var output = ""
+        var currentInput = inputFeatures
+
+        for _ in 0..<maxTokens {
+            let prediction = try model.prediction(from: currentInput)
+            // Décoder le token prédit et l'ajouter à la sortie
+            // (logique de décodage à implémenter selon le modèle)
+        }
+
+        return output
+    }
+}
+```
+
+### Utiliser Apple Foundation Models (iOS 18+)
+
+Apple a introduit les **Foundation Models** pour l'accès unifié aux modèles on-device :
+
+```swift
+import FoundationModels  // iOS 18+, macOS 15+
+
+@available(iOS 18.0, macOS 15.0, *)
+class AppleFoundationLLM {
+    func generate(prompt: String) async throws -> String {
+        let model = SystemLanguageModel.default
+        let session = LanguageModelSession(model: model)
+
+        let response = try await session.respond(to: Prompt(prompt))
+        return response.content
+    }
+}
+```
+
+---
+
+## Option 3 : AnyLanguageModel — API Unifiée
+
+Le package [AnyLanguageModel](https://huggingface.co/blog/anylanguagemodel) propose une interface unique pour MLX, CoreML et les modèles cloud :
+
+```swift
+import AnyLanguageModel
+
+// Fonctionne avec MLX, CoreML, OpenAI, Anthropic...
+let model = AnyLanguageModel(
+    .mlx("mlx-community/Llama-3.2-3B-Instruct-4bit")
+)
+
+let response = try await model.generate("Explique le fine-tuning")
+print(response)
+```
+
+---
+
+## Comparaison MLX Swift vs CoreML vs llama.cpp
+
+| Critère | MLX Swift | CoreML | llama.cpp |
+|---------|-----------|--------|-----------|
+| **iOS Support** | macOS uniquement | ✅ iOS 18+ | ✅ XCFramework |
+| **Performances** | Excellent (Mac) | Bon (Neural Engine) | Bon |
+| **Modèles dispo** | mlx-community HF | À convertir | GGUF (nombreux) |
+| **Fine-tuning** | ✅ | ❌ | ❌ |
+| **Taille d'app** | Grande | Variable | Petite |
+| **Configuration** | Simple | Complexe | Moyenne |
+
+---
+
+<Card title="Modèles MLX Community" icon="database" href="/mlx/models/mlx-community">
+  Découvrir les milliers de modèles prêts à l'emploi sur Hugging Face →
+</Card>

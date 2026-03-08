@@ -1,0 +1,159 @@
+---
+title: "Installation & Setup"
+description: "Configurer MLX et mlx-lm sur votre Mac Apple Silicon en moins de 5 minutes"
+icon: "wrench"
+---
+
+# Installation & Setup
+
+## Prérequis
+
+<Warning>
+MLX fonctionne **uniquement** sur des Macs avec Apple Silicon (M1, M2, M3, M4, M5) sous **macOS 14.0 ou supérieur**.
+</Warning>
+
+Avant de commencer, vérifiez :
+- macOS 14.0+ (Sonoma ou supérieur)
+- Python 3.9+ (version native ARM, pas Rosetta)
+- Puce Apple Silicon (M1/M2/M3/M4/M5)
+
+### Vérifier votre architecture Python
+
+```bash
+python -c "import platform; print(platform.processor())"
+```
+
+La sortie doit être `arm`. Si vous voyez `i386` sur un Mac M-series, vous utilisez Python sous Rosetta — il faut passer à une version native.
+
+<Tip>
+Installez Python natif ARM via [Conda](https://docs.conda.io/en/latest/miniconda.html) ou [Homebrew](https://brew.sh) :
+```bash
+brew install python@3.11
+```
+</Tip>
+
+---
+
+## Installation de MLX
+
+### Option 1 : Installation simple avec pip
+
+```bash
+pip install mlx
+```
+
+C'est tout. Une seule ligne suffit pour le framework core.
+
+### Option 2 : Environnement virtuel (recommandé)
+
+```bash
+# Créer un environnement virtuel
+python -m venv .venv
+source .venv/bin/activate
+
+# Installer MLX core
+pip install mlx
+
+# Vérifier l'installation
+python -c "import mlx.core as mx; print(mx.array([1,2,3]))"
+```
+
+---
+
+## Installation de mlx-lm
+
+`mlx-lm` est le package dédié aux Large Language Models. C'est lui qui vous permet de faire tourner et fine-tuner des LLMs.
+
+```bash
+pip install mlx-lm
+```
+
+### Installation complète (recommandée pour le fine-tuning)
+
+```bash
+pip install -U mlx-lm
+pip install pandas huggingface_hub "huggingface_hub[cli]"
+```
+
+---
+
+## Vérification de l'installation
+
+```bash
+# Tester mlx-lm en générant du texte
+mlx_lm.generate \
+  --model mlx-community/Llama-3.2-3B-Instruct-4bit \
+  --prompt "Bonjour ! Explique-moi MLX en une phrase."
+```
+
+<Note>
+Le premier lancement téléchargera le modèle depuis Hugging Face (~2GB pour Llama 3.2 3B 4-bit). Les téléchargements suivants utiliseront le cache local (`~/.cache/huggingface/hub/`).
+</Note>
+
+---
+
+## Connexion à Hugging Face (optionnel mais recommandé)
+
+Pour accéder aux modèles privés ou uploader vos propres modèles fine-tunés :
+
+```bash
+huggingface-cli login
+```
+
+Entrez votre token HF (disponible sur [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens)).
+
+---
+
+## Installation MLX Swift (pour les apps iOS/macOS)
+
+Si vous développez des apps Swift avec MLX :
+
+```swift
+// Package.swift
+dependencies: [
+    .package(
+        url: "https://github.com/ml-explore/mlx-swift",
+        from: "0.21.0"
+    )
+]
+```
+
+Ou via Xcode : **File → Add Package Dependencies** → entrez l'URL du repo.
+
+---
+
+## Résolution des problèmes courants
+
+<AccordionGroup>
+  <Accordion title="pip cannot find a matching distribution" icon="triangle-exclamation">
+    Vous utilisez probablement Python en mode Rosetta. Vérifiez avec :
+    ```bash
+    python -c "import platform; print(platform.processor())"
+    # Doit afficher 'arm', pas 'i386'
+    ```
+    Solution : réinstallez Python via Homebrew ou Conda en natif ARM.
+  </Accordion>
+
+  <Accordion title="Module 'mlx' not found" icon="triangle-exclamation">
+    Assurez-vous d'être dans le bon environnement virtuel :
+    ```bash
+    source .venv/bin/activate
+    pip show mlx  # vérifier l'installation
+    ```
+  </Accordion>
+
+  <Accordion title="Erreur mémoire lors du chargement d'un modèle" icon="triangle-exclamation">
+    Fermez les autres applications (Firefox, Chrome, etc.) pour libérer de la RAM unifiée.
+    Utilisez des modèles quantisés (4-bit) pour réduire l'empreinte mémoire :
+    ```bash
+    # Préférer les modèles 4-bit de mlx-community
+    mlx_lm.generate --model mlx-community/Mistral-7B-Instruct-v0.3-4bit ...
+    ```
+  </Accordion>
+</AccordionGroup>
+
+---
+
+<Card title="Prochaine étape : Quick Start" icon="rocket" href="/mlx/quickstart">
+  Faites tourner votre premier LLM et explorez les fonctionnalités de mlx-lm →
+</Card>

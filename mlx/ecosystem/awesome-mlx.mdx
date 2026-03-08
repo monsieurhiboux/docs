@@ -1,0 +1,190 @@
+---
+title: "Awesome MLX — L'Écosystème Complet"
+description: "Les meilleurs outils, projets et bibliothèques de l'écosystème MLX"
+icon: "star"
+---
+
+# Awesome MLX
+
+L'écosystème autour de MLX a explosé depuis son lancement fin 2023. Voici les projets incontournables, tirés du repo [antranapp/awesome-mlx](https://github.com/antranapp/awesome-mlx) et du fil officiel [MLX Community Projects](https://github.com/ml-explore/mlx/discussions/654) maintenu par Apple.
+
+---
+
+## Repos Officiels Apple
+
+<CardGroup cols={2}>
+  <Card title="ml-explore/mlx" icon="github" href="https://github.com/ml-explore/mlx">
+    **24k ⭐** — Le framework core. Fondation de tout l'écosystème.
+  </Card>
+  <Card title="ml-explore/mlx-examples" icon="github" href="https://github.com/ml-explore/mlx-examples">
+    **8.3k ⭐** — Exemples : LLMs, vision, speech, LoRA...
+  </Card>
+  <Card title="ml-explore/mlx-lm" icon="github" href="https://github.com/ml-explore/mlx-lm">
+    **3.9k ⭐** — Génération de texte et fine-tuning LLM.
+  </Card>
+  <Card title="ml-explore/mlx-swift-examples" icon="github" href="https://github.com/ml-explore/mlx-swift-examples">
+    **2.4k ⭐** — Apps Swift avec MLX (iOS, macOS).
+  </Card>
+</CardGroup>
+
+---
+
+## Outils Communautaires
+
+### Vision Language Models (VLM)
+
+**[MLX-VLM](https://github.com/Blaizzy/mlx-vlm)** — Inférence et fine-tuning de modèles vision-langage sur Mac
+
+```bash
+pip install mlx-vlm
+
+# Décrire une image
+python -m mlx_vlm.generate \
+  --model mlx-community/Qwen2-VL-7B-Instruct-4bit \
+  --prompt "Qu'est-ce qu'il y a dans cette image ?" \
+  --image ./photo.jpg
+
+# Fine-tuner sur des paires image-texte
+python -m mlx_vlm.lora \
+  --model mlx-community/Qwen2-VL-7B-Instruct-4bit \
+  --train \
+  --data ./vision_data
+```
+
+Supporte des modèles omni (vision + audio + vidéo) avec certains modèles récents.
+
+---
+
+### Embeddings
+
+**[mlx-embedding-models](https://github.com/masoncfrancis/mlx-embedding-models)** — Embeddings de texte sur GPU Apple Silicon
+
+```bash
+pip install mlx-embedding-models
+```
+
+```python
+from mlx_embedding_models.embedding import EmbeddingModel
+
+# Modèle BERT/RoBERTa sur Metal GPU
+model = EmbeddingModel.from_registry("bge-small")
+
+embeddings = model.encode([
+    "Le fine-tuning avec LoRA est efficace sur Mac",
+    "Apple Silicon offre une mémoire unifiée unique",
+])
+
+print(embeddings.shape)  # (2, 384)
+```
+
+Supporte n'importe quel modèle BERT ou RoBERTa. Registre de modèles haute performance intégré.
+
+---
+
+### Entraînement Simplifié
+
+**[SiLLM](https://github.com/armbues/SiLLM)** — Simplifier l'entraînement de LLMs avec MLX
+
+```bash
+pip install sillm
+
+# Interface haut niveau pour le fine-tuning
+python -m sillm train \
+  --model mistralai/Mistral-7B-v0.1 \
+  --dataset ./data \
+  --method lora
+```
+
+SiLLM abstrait la complexité de MLX pour se concentrer sur l'entraînement. Idéal si vous voulez fine-tuner sans vous plonger dans les détails de MLX.
+
+---
+
+### Interface Style Hugging Face
+
+**[mlx-transformers](https://github.com/mlx-transformers/mlx-transformers)** — API Transformers-like pour MLX
+
+```python
+from mlx_transformers import pipeline
+
+# Interface familière pour les utilisateurs HF
+generator = pipeline(
+    "text-generation",
+    model="mlx-community/Llama-3.2-3B-Instruct-4bit"
+)
+
+result = generator("Bonjour ! Comment ça va ?", max_length=100)
+print(result[0]["generated_text"])
+```
+
+---
+
+### Serveur de Production
+
+**[vllm-mlx](https://github.com/waybarrios/vllm-mlx)** — Serveur compatible OpenAI et Anthropic pour Apple Silicon
+
+- 400+ tokens/sec en throughput
+- Compatible Claude Code
+- Batching continu
+- Modèles vision-langage et Llama/Qwen
+
+```bash
+pip install vllm-mlx
+
+python -m vllm_mlx.server \
+  --model mlx-community/Llama-3.1-8B-Instruct-4bit \
+  --port 8000
+```
+
+---
+
+### Plugin CLI — llm-mlx
+
+**[simonw/llm-mlx](https://github.com/simonw/llm-mlx)** — Plugin pour la CLI `llm` de Simon Willison
+
+```bash
+pip install llm llm-mlx
+
+# Lister les modèles disponibles
+llm mlx list
+
+# Télécharger un modèle
+llm mlx download-model mlx-community/Mistral-Small-24B-Instruct-2501-4bit
+
+# Utiliser en mode chat
+llm chat -m mlx-community/Mistral-Small-24B-Instruct-2501-4bit
+
+# Ou en one-shot
+llm -m mlx-community/Llama-3.2-3B-Instruct-4bit "Résume MLX en 3 points"
+```
+
+> Source : [article de Simon Willison](https://simonwillison.net/2025/Feb/15/llm-mlx/) — "Mistral-Small-24B really does feel GPT-4 quality despite only needing around 12GB of RAM"
+
+---
+
+## Projets Créatifs de la Communauté
+
+Du fil [MLX Community Projects #654](https://github.com/ml-explore/mlx/discussions/654) :
+
+| Projet | Description |
+|--------|-------------|
+| **mlx-rag** | RAG (Retrieval-Augmented Generation) entièrement local |
+| **mlx-whatsapp** | Fine-tuner un LLM sur ses propres conversations WhatsApp |
+| **nanoGPT-mlx** | Port de nanoGPT de Karpathy sur MLX |
+| **mlx-gui** | App macOS avec GUI pour fine-tuner des LLMs sans terminal |
+| **mlx-whisper** | Speech-to-text avec Whisper sur Apple Silicon |
+
+---
+
+## GUI pour le Fine-Tuning (sans terminal)
+
+Pour ceux qui préfèrent une interface graphique, plusieurs apps macOS permettent de fine-tuner des LLMs via MLX sans toucher au terminal :
+
+- **LM Studio** — Interface complète de gestion de LLMs locaux
+- **Jan** — App open-source de chat avec LLMs locaux
+- Des apps spécifiques dans la discussion MLX Community #654
+
+---
+
+<Card title="Ressources & Communauté" icon="users" href="/mlx/resources/community">
+  Reddit, newsletters, blogs — où suivre l'actualité MLX →
+</Card>

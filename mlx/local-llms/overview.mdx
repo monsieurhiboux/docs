@@ -1,0 +1,125 @@
+---
+title: "LLMs Locaux sur Mac — Vue d'ensemble"
+description: "Comparaison complète de MLX, Ollama, llama.cpp, MLC-LLM et CoreML pour faire tourner des LLMs localement"
+icon: "server"
+---
+
+# LLMs Locaux sur Apple Silicon
+
+Une étude comparative de référence ([arxiv.org/abs/2511.05502](https://arxiv.org/abs/2511.05502)) a benchmarké les principaux frameworks d'inférence LLM sur Apple Silicon. Voici ce que vous devez savoir.
+
+---
+
+## Vue d'ensemble des options
+
+<CardGroup cols={2}>
+  <Card title="MLX / mlx-lm" icon="apple" href="/mlx/local-llms/mlx-lm-generate">
+    Framework natif Apple. Performances maximales, fine-tuning intégré.
+  </Card>
+  <Card title="Ollama" icon="box" href="/mlx/local-llms/ollama-llamacpp">
+    Ergonomie développeur maximale. Docker pour les LLMs.
+  </Card>
+  <Card title="llama.cpp" icon="code" href="/mlx/local-llms/ollama-llamacpp">
+    Ultra-léger, universel, excellent pour l'inférence CPU+GPU mixte.
+  </Card>
+  <Card title="CoreML / On-Device" icon="iphone" href="/mlx/local-llms/swift-integration">
+    Pour les apps iOS/macOS. Embarquer un LLM directement dans l'app.
+  </Card>
+</CardGroup>
+
+---
+
+## Comparaison des performances
+
+| Framework | Throughput (tok/s) | TTFT | Mémoire | Ergonomie | Fine-tuning |
+|-----------|-------------------|------|---------|-----------|-------------|
+| **MLX** | 🥇 Le plus élevé | Moyen | Unifiée | ⭐⭐⭐⭐ | ✅ Intégré |
+| **MLC-LLM** | 🥈 Élevé | 🥇 Plus court | Configurable | ⭐⭐⭐ | ❌ |
+| **llama.cpp** | 🥉 Bon | Bon | Faible | ⭐⭐⭐⭐ | ⚠️ Limité |
+| **Ollama** | Moyen | Moyen | Moyen | ⭐⭐⭐⭐⭐ | ❌ |
+| **PyTorch MPS** | Bas | Lent | Standard | ⭐⭐⭐ | ✅ |
+
+> TTFT = Time To First Token
+
+---
+
+## Quand utiliser quoi ?
+
+### Choisissez MLX si :
+- Vous voulez les **meilleures performances** sur Mac
+- Vous avez besoin de **fine-tuner** vos modèles
+- Vous développez en Python ou Swift
+- Vous voulez un contrôle fin sur l'inférence
+
+### Choisissez Ollama si :
+- Vous débutez et voulez la **simplicité maximale**
+- Vous voulez une **API compatible OpenAI** sans configuration
+- Vous avez besoin de gérer plusieurs modèles facilement
+- Vous voulez intégrer dans des apps existantes rapidement
+
+### Choisissez llama.cpp si :
+- Vous avez besoin de **portabilité** (fonctionne aussi sur Linux/Windows)
+- Vous voulez une **empreinte mémoire minimale**
+- Vous avez un cas d'usage CPU-heavy
+- Vous développez des apps multiplateformes
+
+### Choisissez CoreML si :
+- Vous développez une **app iOS ou macOS** sans serveur
+- Vous avez besoin d'inférence **complètement on-device**
+- Vie privée maximale (aucune donnée ne quitte l'appareil)
+- Vous ciblez l'App Store
+
+---
+
+## Architecture de déploiement typique
+
+```
+┌─────────────────────────────────────────────────────┐
+│                  Votre Mac                          │
+│                                                     │
+│  ┌─────────────┐  ┌─────────────┐  ┌────────────┐  │
+│  │   Python /  │  │   mlx-lm   │  │   Swift    │  │
+│  │   Scripts   │  │   server   │  │   App      │  │
+│  └──────┬──────┘  └──────┬──────┘  └─────┬──────┘  │
+│         │               │               │          │
+│         └───────────────┼───────────────┘          │
+│                         │                          │
+│                   ┌─────▼──────┐                   │
+│                   │  MLX Core  │                   │
+│                   │  (Metal)   │                   │
+│                   └─────┬──────┘                   │
+│                         │                          │
+│              ┌──────────▼──────────┐               │
+│              │   Unified Memory    │               │
+│              │  (CPU + GPU share)  │               │
+│              └─────────────────────┘               │
+└─────────────────────────────────────────────────────┘
+```
+
+---
+
+## Benchmarks sur différentes puces (Mistral 7B 4-bit)
+
+| Puce | Mémoire | Tokens/s | RAM utilisée |
+|------|---------|----------|-------------|
+| M1 (8GB) | 8 GB | ~25 tok/s | ~6 GB |
+| M1 (16GB) | 16 GB | ~30 tok/s | ~6 GB |
+| M2 Pro (16GB) | 16 GB | ~45 tok/s | ~6 GB |
+| M3 Max (36GB) | 36 GB | ~65 tok/s | ~6 GB |
+| M4 Max (64GB) | 64 GB | ~90 tok/s | ~6 GB |
+| M5 (Neural Acc.) | 64 GB | ~2-4x M4 | ~6 GB |
+
+<Note>
+Sur les puces **M5**, Apple a introduit de nouveaux **Neural Accelerators** dans le GPU qui accélèrent les workloads LLM jusqu'à **4x par rapport au M4** pour le time-to-first-token. Source : [Apple ML Research](https://machinelearning.apple.com/research/exploring-llms-mlx-m5)
+</Note>
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Générer du texte avec mlx-lm" icon="terminal" href="/mlx/local-llms/mlx-lm-generate">
+    CLI, API Python, serveur OpenAI-compatible →
+  </Card>
+  <Card title="Ollama & llama.cpp" icon="box" href="/mlx/local-llms/ollama-llamacpp">
+    Setup Ollama, modèles GGUF, intégration →
+  </Card>
+</CardGroup>

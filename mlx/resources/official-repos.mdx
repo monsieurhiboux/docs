@@ -1,0 +1,147 @@
+---
+title: "Repos Officiels Apple"
+description: "L'organisation ml-explore et tous les repos officiels MLX à suivre"
+icon: "github"
+---
+
+# Repos Officiels Apple MLX
+
+L'organisation GitHub [**ml-explore**](https://github.com/ml-explore) est maintenue activement par Apple. Tous les repos sont sous licence MIT et activement mis à jour.
+
+---
+
+## Repos Core
+
+<CardGroup cols={2}>
+  <Card title="ml-explore/mlx" icon="github" href="https://github.com/ml-explore/mlx">
+    **24 000 ⭐** — Le framework array core. La fondation de tout l'écosystème MLX.
+  </Card>
+  <Card title="ml-explore/mlx-lm" icon="github" href="https://github.com/ml-explore/mlx-lm">
+    **3 900 ⭐** — Package Python pour les LLMs. Génération, fine-tuning LoRA/QLoRA, quantization.
+  </Card>
+  <Card title="ml-explore/mlx-examples" icon="github" href="https://github.com/ml-explore/mlx-examples">
+    **8 300 ⭐** — Exemples concrets : LLaVA, Whisper, FLUX, Stable Diffusion, LoRA...
+  </Card>
+  <Card title="ml-explore/mlx-swift" icon="github" href="https://github.com/ml-explore/mlx-swift">
+    API Swift officielle pour MLX. Intégration native dans les apps Apple.
+  </Card>
+</CardGroup>
+
+---
+
+## Repos Spécialisés
+
+### mlx-swift-examples
+
+[github.com/ml-explore/mlx-swift-examples](https://github.com/ml-explore/mlx-swift-examples) — **2 400 ⭐**
+
+Des apps Swift complètes démontrant l'utilisation de MLX :
+- App de chat LLM (iOS + macOS)
+- Speech recognition avec Whisper
+- Génération d'images
+- Embeddings de texte
+
+```swift
+// Exemple d'utilisation depuis les examples Swift
+import MLXLMCommon
+import MLXLLM
+
+let modelConfig = ModelConfiguration(id: "mlx-community/Llama-3.2-3B-Instruct-4bit")
+let container = try await LLMModelFactory.shared.loadContainer(configuration: modelConfig)
+```
+
+---
+
+### mlx-examples — Contenu détaillé
+
+Le repo `mlx-examples` contient des implémentations complètes :
+
+| Dossier | Description |
+|---------|-------------|
+| `llms/` | LLMs divers avec fine-tuning |
+| `lora/` | Référence LoRA/QLoRA |
+| `whisper/` | Speech-to-text |
+| `stable_diffusion/` | Génération d'images |
+| `flux/` | FLUX image generation |
+| `clip/` | Vision-language CLIP |
+| `bert/` | Embeddings BERT |
+| `mnist/` | Tutoriel ML de base |
+
+```bash
+# Cloner et explorer les examples
+git clone https://github.com/ml-explore/mlx-examples
+cd mlx-examples/lora
+pip install -r requirements.txt
+python lora.py --help
+```
+
+---
+
+## Documentation officielle
+
+### Référence API MLX
+
+[ml-explore.github.io/mlx](https://ml-explore.github.io/mlx/build/html/index.html)
+
+La documentation officielle couvre :
+- **API Python** : `mlx.core`, `mlx.nn`, `mlx.optimizers`
+- **Build & Install** : instructions de compilation depuis les sources
+- **Metal Kernel API** : pour écrire des kernels GPU custom
+- **Tutorials** : exemples pas-à-pas
+
+### Sections clés de la doc
+
+```
+mlx/
+├── mlx.core          ← Arrays, opérations de base, devices
+├── mlx.nn            ← Layers, activations, losses
+├── mlx.optimizers    ← SGD, Adam, AdamW...
+├── mlx.data          ← Chargement de données
+└── mlx.utils         ← Sauvegarde, chargement de poids
+```
+
+---
+
+## Suivre les mises à jour
+
+### GitHub Releases
+
+MLX est mis à jour fréquemment. Pour suivre :
+- Cliquer **Watch → Releases only** sur le repo
+- Les release notes détaillent les nouvelles fonctionnalités et optimisations
+
+### GitHub Discussions
+
+Le fil [MLX Community Projects #654](https://github.com/ml-explore/mlx/discussions/654) est maintenu par Apple et liste tous les projets communautaires notables.
+
+---
+
+## Contribuer à MLX
+
+MLX accepte les contributions. Pour commencer :
+
+```bash
+# Fork et cloner
+git clone https://github.com/votre-username/mlx
+cd mlx
+
+# Créer un environnement de dev
+cmake -B build -DMLX_BUILD_TESTS=ON -DMLX_BUILD_BENCHMARKS=ON
+cmake --build build
+
+# Lancer les tests
+cd build && ctest --output-on-failure
+```
+
+Les contributions bienvenues incluent : corrections de bugs, nouveaux layers, exemples, documentation, et optimisations de kernels Metal.
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Retour à l'Introduction" icon="arrow-left" href="/mlx/introduction">
+    Revoir les fondamentaux de MLX →
+  </Card>
+  <Card title="Commencer le Fine-Tuning" icon="dumbbell" href="/mlx/fine-tuning/lora-guide">
+    Guide LoRA pas-à-pas →
+  </Card>
+</CardGroup>

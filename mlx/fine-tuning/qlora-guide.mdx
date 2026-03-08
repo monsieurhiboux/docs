@@ -1,0 +1,183 @@
+---
+title: "QLoRA — Fine-Tuning Quantisé"
+description: "Fine-tuner des modèles 4-bit avec QLoRA pour des besoins mémoire ultra-réduits"
+icon: "microchip"
+---
+
+# QLoRA : LoRA sur modèles quantisés
+
+**QLoRA (Quantized LoRA)** combine la quantization 4-bit du modèle de base avec l'entraînement LoRA. Résultat : fine-tuner un modèle de 7B paramètres avec seulement **~7 GB de RAM unifiée**.
+
+MLX est conçu pour cela : la quantization est tellement bien intégrée dans le framework que passer de LoRA à QLoRA se fait juste en changeant le modèle source.
+
+---
+
+## Comment QLoRA améliore LoRA
+
+```
+LoRA standard :
+  Base model : float16 (14 GB pour 7B params)
+  + LoRA adapters : float16 (quelques MB)
+  = ~14 GB total
+
+QLoRA :
+  Base model : int4 quantized (7 GB pour 7B params)
+  + LoRA adapters : float16 (quelques MB)  ← toujours en précision complète
+  = ~7 GB total
+```
+
+Le modèle de base est compressé (4-bit NormalFloat), mais les paramètres LoRA restent en 16-bit pour garantir la stabilité de l'entraînement.
+
+---
+
+## Étape 1 : Quantiser le modèle de base
+
+```bash
+# Quantisation en 4-bit
+mlx_lm.convert \
+  --hf-path microsoft/Phi-3-mini-4k-instruct \
+  -q \
+  --q-bits 4 \
+  --mlx-path ./mlx_model
+```
+
+Cela crée un dossier `mlx_model/` avec le modèle quantisé localement.
+
+### Options de quantisation
+
+| Bits | Taille (7B) | Qualité | Usage |
+|------|------------|---------|-------|
+| 8-bit | ~7 GB | Excellent | Équilibre qualité/taille |
+| 4-bit | ~4 GB | Très bon | Recommandé pour fine-tuning |
+| 3-bit | ~3 GB | Bon | Machines avec peu de RAM |
+| 2-bit | ~2 GB | Dégradé | Seulement si RAM < 8GB |
+
+<Tip>
+**4-bit est le sweet spot** pour QLoRA : il offre un excellent équilibre entre compression mémoire et qualité des sorties. La plupart des modèles `mlx-community` sur Hugging Face sont déjà en 4-bit.
+</Tip>
+
+---
+
+## Étape 2 : Lancer QLoRA
+
+La commande est **identique** à LoRA standard, mais pointe vers le modèle quantisé local. MLX détecte automatiquement les poids quantisés et bascule en mode QLoRA.
+
+```bash
+mlx_lm.lora \
+  --model ./mlx_model \
+  --train \
+  --data ./data \
+  --iters 100
+```
+
+<Note>
+MLX est assez intelligent pour détecter que si les poids sont quantisés, il doit utiliser QLoRA. **Aucun flag supplémentaire nécessaire.**
+</Note>
+
+---
+
+## Étape 3 : Utiliser un modèle mlx-community directement
+
+Vous pouvez aussi fine-tuner directement depuis un modèle déjà quantisé sur Hugging Face, sans étape de conversion :
+
+```bash
+# Avec Mistral 7B 4-bit depuis mlx-community
+mlx_lm.lora \
+  --model mlx-community/Mistral-7B-Instruct-v0.3-4bit \
+  --train \
+  --data ./data \
+  --iters 200 \
+  --lora-layers 8 \
+  --batch-size 1
+```
+
+```bash
+# Avec Llama 3.1 8B 4-bit
+mlx_lm.lora \
+  --model mlx-community/Meta-Llama-3.1-8B-Instruct-4bit \
+  --train \
+  --data ./data \
+  --iters 300
+```
+
+---
+
+## Configuration recommandée par hardware
+
+<Tabs>
+  <Tab title="MacBook Air (8-16 GB)">
+    ```bash
+    mlx_lm.lora \
+      --model mlx-community/Phi-3.5-mini-instruct-4bit \
+      --train \
+      --data ./data \
+      --iters 100 \
+      --batch-size 1 \
+      --lora-layers 4 \
+      --learning-rate 1e-5
+    ```
+    - Modèles recommandés : Phi-3.5-mini, Llama-3.2-3B
+    - Fermez toutes les autres apps pendant l'entraînement
+  </Tab>
+  <Tab title="MacBook Pro M3/M4 (16-36 GB)">
+    ```bash
+    mlx_lm.lora \
+      --model mlx-community/Mistral-7B-Instruct-v0.3-4bit \
+      --train \
+      --data ./data \
+      --iters 500 \
+      --batch-size 2 \
+      --lora-layers 8
+    ```
+    - Modèles recommandés : Mistral 7B, Llama 3.1 8B
+    - Peut faire tourner des modèles 13B confortablement
+  </Tab>
+  <Tab title="Mac Studio/Pro (36-128 GB)">
+    ```bash
+    mlx_lm.lora \
+      --model mlx-community/Mistral-Small-24B-Instruct-4bit \
+      --train \
+      --data ./data \
+      --iters 1000 \
+      --batch-size 4 \
+      --lora-layers 16
+    ```
+    - Modèles recommandés : Mistral 24B, Llama 70B
+    - Capable de fine-tuner des modèles 70B en QLoRA
+  </Tab>
+</Tabs>
+
+---
+
+## Fusionner et dé-quantiser pour la production
+
+Pour une inférence optimale en production, fusionnez les adapters et dé-quantisez :
+
+```bash
+mlx_lm.fuse \
+  --model mlx-community/Mistral-7B-Instruct-v0.3-4bit \
+  --adapter-path ./adapters \
+  --save-path ./production_model \
+  --de-quantize
+```
+
+Le modèle final sera en float16, plus grand mais plus précis pour l'inférence.
+
+---
+
+## Tips de la communauté r/LocalLLaMA
+
+Tirés du thread ["Lessons learned so far: LoRA Fine tuning on MacBook Air with MLX"](https://reddit.com/r/LocalLLaMA/comments/18wabkc) :
+
+1. **Validez vos fichiers JSONL** — des caractères mal échappés invalidement silencieusement le dataset
+2. **Fermez Firefox/Chrome** pendant l'entraînement — chaque Go libéré compte
+3. **Limitez les lignes à ~3500 tokens** max pour éviter les erreurs mémoire
+4. **Vitesse attendue** : 60-80 tokens/sec sur M1 Air 16GB
+5. **Un dataset de 600 lignes** peut être traité en quelques heures
+6. **MLX utilise vraiment le GPU** (via Metal), contrairement à certaines configs llama.cpp
+
+---
+
+<Card title="Préparer vos données" icon="database" href="/mlx/fine-tuning/dataset-preparation">
+  Tout sur les formats JSONL, les templates de chat et la validation →
+</Card>

@@ -1,0 +1,166 @@
+---
+title: "Introduction à MLX"
+description: "Le framework open-source d'Apple pour le machine learning sur Apple Silicon"
+icon: "apple"
+---
+
+# MLX — Machine Learning sur Apple Silicon
+
+<Note>
+MLX est disponible uniquement sur macOS 14.0+ avec des puces Apple Silicon (M1, M2, M3, M4, M5).
+</Note>
+
+## Qu'est-ce que MLX ?
+
+**MLX** est un framework open-source d'Apple, conçu exclusivement pour Apple Silicon. C'est une bibliothèque flexible et efficace pour le calcul numérique et le machine learning, capable de couvrir des cas d'usage allant des opérations de base sur des tableaux jusqu'aux modèles de language frontier à grande échelle.
+
+MLX est sous licence MIT, dispose d'APIs en **Python, Swift, C++ et C**, et bénéficie d'une communauté active sur Hugging Face (la `mlx-community`).
+
+<CardGroup cols={2}>
+  <Card title="GitHub Officiel" icon="github" href="https://github.com/ml-explore/mlx">
+    24k ⭐ — Le repo principal MLX
+  </Card>
+  <Card title="Documentation" icon="book" href="https://ml-explore.github.io/mlx">
+    Référence technique complète
+  </Card>
+  <Card title="WWDC25 Talk" icon="video" href="https://developer.apple.com/videos/play/wwdc2025/298">
+    Explore LLMs on Apple Silicon with MLX
+  </Card>
+  <Card title="MLX Community HF" icon="users" href="https://huggingface.co/mlx-community">
+    Milliers de modèles prêts à l'emploi
+  </Card>
+</CardGroup>
+
+---
+
+## La différence clé : Mémoire Unifiée
+
+L'architecture qui rend MLX exceptionnel est son modèle de **mémoire unifiée** (Unified Memory).
+
+Dans les frameworks traditionnels comme PyTorch, la donnée doit être explicitement déplacée entre CPU et GPU. Avec MLX, les tableaux vivent dans une mémoire partagée — les opérations peuvent s'exécuter indifféremment sur le CPU ou le GPU **sans aucune copie de données**.
+
+```python
+import mlx.core as mx
+
+# Créer un tableau en mémoire unifiée
+a = mx.array([1, 2, 3, 4])
+
+# L'opération s'exécute sur GPU via Metal
+b = mx.square(a)
+
+# Ou forcer le CPU si besoin
+with mx.stream(mx.cpu):
+    c = mx.sum(a)
+```
+
+<Info>
+Contrairement à CUDA (NVIDIA) ou ROCm (AMD), MLX n'a pas besoin que vous spécifiiez si la donnée est "en GPU" ou "en CPU" — elle est toujours accessible des deux côtés simultanément.
+</Info>
+
+---
+
+## Fonctionnalités Clés
+
+<AccordionGroup>
+  <Accordion title="⚡ Évaluation Lazy (Lazy Evaluation)" icon="bolt">
+    Au lieu d'exécuter chaque opération immédiatement, MLX construit un graphe de calcul qui n'est exécuté que lorsque le résultat est nécessaire. Cela permet d'optimiser les chaînes d'opérations et de réduire les allers-retours mémoire.
+
+    ```python
+    # Le calcul n'est pas encore exécuté ici...
+    result = mx.exp(mx.array([1.0, 2.0, 3.0]))
+    # ...mais seulement quand on demande la valeur
+    mx.eval(result)
+    print(result)
+    ```
+  </Accordion>
+
+  <Accordion title="🔄 Transformations de Fonctions" icon="arrows-rotate">
+    MLX peut prendre des fonctions en entrée et retourner de nouvelles fonctions — ce qui facilite la différentiation automatique, la vectorisation et les optimisations de graphes.
+
+    ```python
+    import mlx.core as mx
+
+    def fn(x):
+        return mx.sum(mx.square(x))
+
+    # Gradient automatique
+    grad_fn = mx.grad(fn)
+    x = mx.array([1.0, 2.0, 3.0])
+    print(grad_fn(x))  # [2.0, 4.0, 6.0]
+    ```
+  </Accordion>
+
+  <Accordion title="📐 API Familière (NumPy-like)" icon="code">
+    L'API MLX suit de près NumPy. Si vous connaissez NumPy ou PyTorch, vous serez immédiatement à l'aise avec MLX.
+
+    ```python
+    import mlx.core as mx
+    import mlx.nn as nn
+
+    # Similaire à torch.nn
+    model = nn.Sequential(
+        nn.Linear(784, 256),
+        nn.ReLU(),
+        nn.Linear(256, 10)
+    )
+    ```
+  </Accordion>
+
+  <Accordion title="🚀 Accélération Metal GPU" icon="gpu-card">
+    MLX utilise **Metal**, le framework de compute GPU d'Apple, pour accélérer toutes les opérations. Sur les puces M5, avec les nouveaux Neural Accelerators, les workloads LLM peuvent être jusqu'à **4x plus rapides** en time-to-first-token par rapport à un M4 de base.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Architecture MLX
+
+```
+┌─────────────────────────────────────────┐
+│              Applications               │
+│  (mlx-lm, MLX-VLM, SiLLM, etc.)        │
+├─────────────────────────────────────────┤
+│           MLX Python / Swift API        │
+├──────────────────┬──────────────────────┤
+│   Lazy Graph     │   Function           │
+│   Evaluation     │   Transforms         │
+├──────────────────┴──────────────────────┤
+│         Unified Memory Model            │
+├──────────────┬──────────────────────────┤
+│  CPU Backend │  Metal GPU Backend       │
+│  (ARM NEON)  │  (Apple Silicon GPU)     │
+└──────────────┴──────────────────────────┘
+```
+
+---
+
+## Pourquoi MLX plutôt que les alternatives ?
+
+| Framework     | Token/s (M3 Max) | Mémoire | Facilité d'usage |
+|---------------|-----------------|---------|-----------------|
+| **MLX**       | 🥇 Le plus élevé | Unifiée | ⭐⭐⭐⭐⭐ |
+| MLC-LLM       | 🥈 TTFT plus court | Configurable | ⭐⭐⭐⭐ |
+| llama.cpp     | 🥉 Léger, efficace | Bas | ⭐⭐⭐⭐ |
+| Ollama        | Ergonomie +++  | Moyen | ⭐⭐⭐⭐⭐ |
+| PyTorch MPS   | Généraliste    | Standard | ⭐⭐⭐ |
+
+> Source : [Production-Grade Local LLM Inference on Apple Silicon](https://arxiv.org/abs/2511.05502) — Comparative Study
+
+---
+
+## L'Écosystème MLX
+
+L'écosystème officiel d'Apple comprend plusieurs repos :
+
+| Repo | Stars | Description |
+|------|-------|-------------|
+| [ml-explore/mlx](https://github.com/ml-explore/mlx) | 24k ⭐ | Framework core |
+| [ml-explore/mlx-examples](https://github.com/ml-explore/mlx-examples) | 8.3k ⭐ | Exemples pratiques |
+| [ml-explore/mlx-lm](https://github.com/ml-explore/mlx-lm) | 3.9k ⭐ | LLMs avec MLX |
+| [ml-explore/mlx-swift-examples](https://github.com/ml-explore/mlx-swift-examples) | 2.4k ⭐ | Intégration Swift |
+
+---
+
+<Note>
+**Prochaine étape →** [Installation & Setup](/mlx/installation) pour commencer en 2 minutes.
+</Note>

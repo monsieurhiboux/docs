@@ -1,0 +1,213 @@
+---
+title: "Préparer vos Données"
+description: "Formats JSONL, templates de chat et bonnes pratiques pour le fine-tuning MLX"
+icon: "database"
+---
+
+# Préparer vos Données pour MLX Fine-Tuning
+
+La qualité de votre dataset est le facteur #1 du succès d'un fine-tuning. MLX est flexible sur les formats, mais exigeant sur la structure.
+
+---
+
+## Les 4 formats supportés par MLX
+
+### 1. Format Chat (recommandé)
+
+Idéal pour les modèles instruction-following. Suit la convention OpenAI.
+
+```jsonl
+{"messages": [{"role": "system", "content": "Tu es un expert en nutrition."}, {"role": "user", "content": "Quels sont les bienfaits du magnésium ?"}, {"role": "assistant", "content": "Le magnésium est essentiel pour plus de 300 réactions enzymatiques..."}]}
+{"messages": [{"role": "user", "content": "Comment calculer mes besoins caloriques ?"}, {"role": "assistant", "content": "Pour calculer vos besoins caloriques, on utilise la formule de Mifflin-St Jeor..."}]}
+```
+
+### 2. Format Tools (function calling)
+
+Pour fine-tuner un modèle sur l'utilisation d'outils :
+
+```jsonl
+{"messages": [{"role": "user", "content": "Quelle est la météo à Paris ?"}, {"role": "assistant", "tool_calls": [{"type": "function", "function": {"name": "get_weather", "arguments": "{\"city\": \"Paris\"}"}}]}]}
+```
+
+### 3. Format Completions
+
+Classique pour les tâches de complétion structurée :
+
+```jsonl
+{"prompt": "Résume ce texte : [TEXTE]", "completion": "Ce texte traite de..."}
+{"prompt": "Traduis en anglais : Bonjour le monde", "completion": "Hello world"}
+```
+
+### 4. Format Text
+
+Pour l'apprentissage non-supervisé sur un corpus :
+
+```jsonl
+{"text": "MLX est un framework open-source d'Apple pour le machine learning sur Apple Silicon..."}
+{"text": "Le fine-tuning permet d'adapter un modèle pré-entraîné à une tâche spécifique..."}
+```
+
+---
+
+## Structure des fichiers
+
+```
+data/
+├── train.jsonl    ← 80-90% de vos données (obligatoire)
+├── valid.jsonl    ← 10-20% pour la validation (recommandé)
+└── test.jsonl     ← pour l'évaluation finale (optionnel)
+```
+
+<Warning>
+**Le fichier `train.jsonl` est obligatoire.** Si vous n'avez pas de fichier `valid.jsonl`, l'évaluation de la validation loss sera sautée, rendant difficile le suivi de l'overfitting.
+</Warning>
+
+---
+
+## Créer un dataset depuis zéro
+
+### Script Python pour générer un dataset chat
+
+```python
+import json
+import random
+
+# Vos données source
+qa_pairs = [
+    {
+        "question": "Qu'est-ce que la photosynthèse ?",
+        "answer": "La photosynthèse est le processus par lequel les plantes..."
+    },
+    # ... plus d'entrées
+]
+
+def format_as_chat(qa):
+    return {
+        "messages": [
+            {"role": "user", "content": qa["question"]},
+            {"role": "assistant", "content": qa["answer"]}
+        ]
+    }
+
+# Split train/valid
+random.shuffle(qa_pairs)
+split = int(len(qa_pairs) * 0.85)
+train_data = qa_pairs[:split]
+valid_data = qa_pairs[split:]
+
+# Écrire les fichiers
+with open("data/train.jsonl", "w") as f:
+    for item in train_data:
+        f.write(json.dumps(format_as_chat(item), ensure_ascii=False) + "\n")
+
+with open("data/valid.jsonl", "w") as f:
+    for item in valid_data:
+        f.write(json.dumps(format_as_chat(item), ensure_ascii=False) + "\n")
+
+print(f"Train: {len(train_data)} exemples")
+print(f"Valid: {len(valid_data)} exemples")
+```
+
+---
+
+## Valider votre dataset
+
+**Ne sautez jamais cette étape.** Des erreurs silencieuses dans le JSONL peuvent invalider tout votre entraînement.
+
+```python
+import json
+
+def validate_jsonl(filepath):
+    errors = []
+    with open(filepath, 'r') as f:
+        for i, line in enumerate(f, 1):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                obj = json.loads(line)
+                # Vérifier la structure
+                if "messages" in obj:
+                    for msg in obj["messages"]:
+                        assert "role" in msg and "content" in msg
+                elif "text" in obj:
+                    assert isinstance(obj["text"], str)
+                elif "prompt" in obj and "completion" in obj:
+                    pass
+                else:
+                    errors.append(f"Ligne {i}: format non reconnu")
+            except json.JSONDecodeError as e:
+                errors.append(f"Ligne {i}: JSON invalide — {e}")
+            except AssertionError:
+                errors.append(f"Ligne {i}: structure invalide")
+
+    if errors:
+        print(f"❌ {len(errors)} erreur(s) trouvée(s):")
+        for e in errors[:10]:
+            print(f"  {e}")
+    else:
+        print(f"✓ Dataset valide ({i} lignes)")
+
+    return len(errors) == 0
+
+validate_jsonl("data/train.jsonl")
+validate_jsonl("data/valid.jsonl")
+```
+
+---
+
+## Conseils sur la taille du dataset
+
+| Tâche | Nombre d'exemples minimaux | Notes |
+|-------|---------------------------|-------|
+| Tone/style adjustment | 50–200 | Simple, converge vite |
+| Domain adaptation | 200–1000 | Terminologie spécialisée |
+| Format d'output spécifique | 100–500 | JSON, structure etc. |
+| New task/capability | 500–5000 | Plus complexe |
+| Instruction following | 1000+ | Nécessite diversité |
+
+<Tip>
+**La diversité > la quantité.** Un dataset de 200 exemples variés et bien rédigés surpasse souvent 1000 exemples répétitifs. Le modèle peut "oublier" les capacités générales si vos données ne sont pas assez diverses.
+</Tip>
+
+---
+
+## Limite de tokens par ligne
+
+MLX peut avoir des erreurs mémoire si les lignes dépassent environ **3500 tokens**. Filtrez les exemples trop longs :
+
+```python
+from mlx_lm import load
+
+model, tokenizer = load("mlx-community/Mistral-7B-Instruct-v0.3-4bit")
+
+def filter_by_length(filepath, max_tokens=3000):
+    kept = []
+    removed = 0
+    with open(filepath) as f:
+        for line in f:
+            obj = json.loads(line)
+            # Estimer la longueur
+            text = str(obj)
+            tokens = tokenizer.encode(text)
+            if len(tokens) <= max_tokens:
+                kept.append(line)
+            else:
+                removed += 1
+
+    print(f"Gardé: {len(kept)}, Supprimé (trop long): {removed}")
+    return kept
+```
+
+---
+
+## Cas d'usage inspirants de la communauté
+
+- **mlx-whatsapp** : fine-tuner sur ses propres conversations WhatsApp pour créer un clone de soi-même
+- **Nutrition expert LLM** : fine-tuner sur des données nutritionnelles pour un assistant diététique personnalisé
+- **Code assistant** : fine-tuner sur sa propre base de code pour un assistant contextualisé
+- **Customer support bot** : fine-tuner sur des tickets de support existants
+
+<Card title="Tips & astuces de la communauté" icon="lightbulb" href="/mlx/fine-tuning/tips-and-tricks">
+  Leçons apprises, optimisations et pièges à éviter →
+</Card>

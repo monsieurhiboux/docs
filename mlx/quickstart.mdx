@@ -1,0 +1,175 @@
+---
+title: "Quick Start"
+description: "Faites tourner votre premier LLM sur Apple Silicon en quelques commandes"
+icon: "rocket"
+---
+
+# Quick Start avec MLX
+
+Vous avez installé MLX. Voici comment utiliser vos premiers modèles en 5 minutes.
+
+---
+
+## 1. Génération de texte en ligne de commande
+
+La façon la plus simple de commencer :
+
+```bash
+mlx_lm.generate \
+  --model mlx-community/Llama-3.2-3B-Instruct-4bit \
+  --prompt "Qu'est-ce que le fine-tuning LoRA ?"
+```
+
+**Options utiles :**
+
+| Option | Description | Exemple |
+|--------|-------------|---------|
+| `--model` | Modèle HF ou chemin local | `mlx-community/Mistral-7B-v0.3-4bit` |
+| `--prompt` | Votre prompt | `"Explique le gradient descent"` |
+| `--max-tokens` | Nombre max de tokens générés | `--max-tokens 500` |
+| `--temp` | Température (0=déterministe) | `--temp 0.7` |
+| `--max-kv-size` | Taille du cache KV (longs contextes) | `--max-kv-size 1024` |
+
+---
+
+## 2. Mode Chat interactif
+
+Pour une conversation multi-tours (garde le modèle en mémoire) :
+
+```bash
+mlx_lm.chat --model mlx-community/Llama-3.2-3B-Instruct-4bit
+```
+
+<Tip>
+Utilisez `mlx_lm.chat` pour les grands modèles (30B+) : cela garde le modèle chargé en RAM entre les messages, ce qui est bien plus efficace.
+</Tip>
+
+---
+
+## 3. Utilisation via Python
+
+```python
+from mlx_lm import load, generate
+
+# Charger le modèle et le tokenizer
+model, tokenizer = load("mlx-community/Llama-3.2-3B-Instruct-4bit")
+
+# Générer du texte
+prompt = "Explique la mémoire unifiée Apple Silicon en 3 points."
+response = generate(model, tokenizer, prompt=prompt, max_tokens=300, verbose=True)
+print(response)
+```
+
+### Avec un template de chat
+
+```python
+from mlx_lm import load, generate
+
+model, tokenizer = load("mlx-community/Mistral-7B-Instruct-v0.3-4bit")
+
+messages = [
+    {"role": "user", "content": "Quel est le meilleur modèle pour le fine-tuning sur Mac ?"}
+]
+
+# Appliquer le template de chat du modèle
+text = tokenizer.apply_chat_template(
+    messages,
+    tokenize=False,
+    add_generation_prompt=True
+)
+
+response = generate(model, tokenizer, prompt=text, max_tokens=500)
+print(response)
+```
+
+---
+
+## 4. Modèles recommandés pour débuter
+
+<CardGroup cols={2}>
+  <Card title="Llama 3.2 3B 4-bit" icon="microchip">
+    **~2 GB RAM** — Parfait pour tester. Rapide, léger.
+    ```
+    mlx-community/Llama-3.2-3B-Instruct-4bit
+    ```
+  </Card>
+  <Card title="Mistral 7B 4-bit" icon="bolt">
+    **~4 GB RAM** — Bon équilibre qualité/vitesse.
+    ```
+    mlx-community/Mistral-7B-Instruct-v0.3-4bit
+    ```
+  </Card>
+  <Card title="Mistral Small 24B" icon="star">
+    **~12 GB RAM** — Qualité GPT-4. Recommandé par Simon Willison.
+    ```
+    mlx-community/Mistral-Small-24B-Instruct-2501-4bit
+    ```
+  </Card>
+  <Card title="DeepSeek-R1 32B" icon="brain">
+    **~18 GB RAM** — Raisonnement avancé avec blocs `<think>`.
+    ```
+    mlx-community/DeepSeek-R1-Distill-Qwen-32B-4bit
+    ```
+  </Card>
+</CardGroup>
+
+---
+
+## 5. Quantization d'un modèle existant
+
+Vous pouvez convertir n'importe quel modèle Hugging Face en format MLX quantisé :
+
+```bash
+# Télécharger et quantiser en 4-bit
+mlx_lm.convert \
+  --hf-path microsoft/Phi-3-mini-4k-instruct \
+  -q \
+  --q-bits 4 \
+  --mlx-path ./my_quantized_model
+```
+
+Cela crée un dossier local avec le modèle quantisé, prêt à être utilisé ou partagé.
+
+---
+
+## 6. Serveur OpenAI-compatible
+
+MLX-LM inclut un serveur compatible avec l'API OpenAI :
+
+```bash
+mlx_lm.server --model mlx-community/Llama-3.2-3B-Instruct-4bit --port 8080
+```
+
+Ensuite, utilisez-le comme n'importe quelle API OpenAI :
+
+```python
+from openai import OpenAI
+
+client = OpenAI(base_url="http://localhost:8080/v1", api_key="fake")
+response = client.chat.completions.create(
+    model="mlx-community/Llama-3.2-3B-Instruct-4bit",
+    messages=[{"role": "user", "content": "Hello!"}]
+)
+print(response.choices[0].message.content)
+```
+
+---
+
+## Performances typiques sur Apple Silicon
+
+| Puce | Mémoire | Modèle | Tokens/s |
+|------|---------|--------|----------|
+| M1 (8GB) | 8 GB | 3B 4-bit | ~30 tok/s |
+| M2 Pro (16GB) | 16 GB | 7B 4-bit | ~50 tok/s |
+| M3 Max (36GB) | 36 GB | 13B 4-bit | ~60 tok/s |
+| M4 Max (64GB) | 64 GB | 70B 4-bit | ~20 tok/s |
+
+<Info>
+MLX est généralement **2x plus rapide** que llama.cpp sur la même machine, car il utilise réellement les GPU Metal au lieu de se limiter au CPU.
+</Info>
+
+---
+
+<Card title="Prochaine étape : Fine-tuning LoRA" icon="dumbbell" href="/mlx/fine-tuning/lora-guide">
+  Apprenez à fine-tuner votre propre LLM sur Mac avec LoRA →
+</Card>
