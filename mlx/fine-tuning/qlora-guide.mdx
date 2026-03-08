@@ -4,8 +4,6 @@ description: "Fine-tuner des modèles 4-bit avec QLoRA pour des besoins mémoire
 icon: "microchip"
 ---
 
-# QLoRA : LoRA sur modèles quantisés
-
 **QLoRA (Quantized LoRA)** combine la quantization 4-bit du modèle de base avec l'entraînement LoRA. Résultat : fine-tuner un modèle de 7B paramètres avec seulement **~7 GB de RAM unifiée**.
 
 MLX est conçu pour cela : la quantization est tellement bien intégrée dans le framework que passer de LoRA à QLoRA se fait juste en changeant le modèle source.
