@@ -34,6 +34,10 @@ Avant d'utiliser le framework FoundationModels, vous devez vérifier que le mod�
 - **Stockage** : minimum 7 GB disponibles pour le téléchargement du modèle
 - **Apple Intelligence** : doit être activé dans Réglages système
 
+<Info>
+Le modèle n'est **pas embarqué dans votre app**. Il est téléchargé séparément par l'utilisateur via Apple Intelligence. Votre app fait appel au modèle installé sur l'appareil — c'est pour ça que l'utilisateur doit avoir Apple Intelligence actif et suffisamment de stockage.
+</Info>
+
 ---
 
 ## Vérifier la disponibilité
@@ -93,6 +97,10 @@ func getAvailabilityMessage() -> String {
 | `appleIntelligenceNotEnabled` | Désactivé | Activer dans Réglages |
 | `modelNotReady` | En téléchargement ou surchauffe | Patienter |
 | `unavailable` (autre) | Autre raison | Vérifier les conditions |
+
+<Info>
+**`modelNotReady` n'est pas forcément permanent.** Le modèle peut devenir temporairement indisponible même en cours d'utilisation : surchauffe de l'appareil, batterie faible, ou trop de charge système. C'est pour ça qu'il faut vérifier la disponibilité non seulement au lancement, mais aussi avant chaque appel si votre app est très intensive.
+</Info>
 
 ---
 

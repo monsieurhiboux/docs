@@ -58,6 +58,10 @@ struct WeatherTool: Tool {
 
 Le `name` et la `description` sont inclus avec chaque prompt pour que le modèle sache quand et comment utiliser le Tool.
 
+<Info>
+**Le modèle ne lit pas votre code Swift.** Il prend ses décisions uniquement en lisant le `name` et la `description` de chaque Tool. Un Tool nommé `"getW"` avec la description `"Tool météo"` sera rarement utilisé — le modèle ne saura pas à quoi il sert. Soyez descriptif et explicite.
+</Info>
+
 ---
 
 ## Flux d'exécution d'un Tool
@@ -84,6 +88,10 @@ Le `name` et la `description` sont inclus avec chaque prompt pour que le modèle
 ```
 
 Le modèle reformule la réponse du Tool dans son propre style.
+
+<Info>
+**La sortie du Tool ≠ la sortie du modèle.** Ce que votre fonction `call()` retourne n'est pas directement transmis à l'utilisateur. Le modèle lit votre réponse et la reformule dans son propre style, en ajoutant du contexte ou en omettant des informations. Si vous avez besoin de récupérer les données exactes du Tool (sans reformulation), utilisez Guided Generation avec `generating:` — le modèle sera alors contraint de remplir une structure Swift typée plutôt que de faire du texte libre.
+</Info>
 
 ---
 
