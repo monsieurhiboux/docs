@@ -1,17 +1,66 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "MLX & Apple Silicon AI",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#1D4ED8",
+    "light": "#3B82F6",
+    "dark": "#1E40AF"
   },
   "favicon": "/favicon.svg",
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "MLX & Apple Silicon",
+        "groups": [
+          {
+            "group": "Démarrer",
+            "pages": [
+              "mlx/introduction",
+              "mlx/installation",
+              "mlx/quickstart"
+            ]
+          },
+          {
+            "group": "Fine-Tuning",
+            "pages": [
+              "mlx/fine-tuning/lora-guide",
+              "mlx/fine-tuning/qlora-guide",
+              "mlx/fine-tuning/dataset-preparation",
+              "mlx/fine-tuning/tips-and-tricks"
+            ]
+          },
+          {
+            "group": "LLMs Locaux",
+            "pages": [
+              "mlx/local-llms/overview",
+              "mlx/local-llms/ollama-llamacpp",
+              "mlx/local-llms/swift-integration"
+            ]
+          },
+          {
+            "group": "Modèles",
+            "pages": [
+              "mlx/models/mlx-community"
+            ]
+          },
+          {
+            "group": "Écosystème",
+            "pages": [
+              "mlx/ecosystem/awesome-mlx"
+            ]
+          },
+          {
+            "group": "Ressources",
+            "pages": [
+              "mlx/resources/community",
+              "mlx/resources/official-repos"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Guides Mintlify",
         "groups": [
           {
             "group": "Getting started",
@@ -48,7 +97,7 @@
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "API Reference",
         "groups": [
           {
             "group": "API documentation",
@@ -71,14 +120,19 @@
     "global": {
       "anchors": [
         {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
+          "anchor": "GitHub MLX",
+          "href": "https://github.com/ml-explore/mlx",
+          "icon": "github"
         },
         {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
+          "anchor": "MLX Community HF",
+          "href": "https://huggingface.co/mlx-community",
+          "icon": "users"
+        },
+        {
+          "anchor": "WWDC25 Talk",
+          "href": "https://developer.apple.com/videos/play/wwdc2025/298",
+          "icon": "video"
         }
       ]
     }
@@ -90,33 +144,32 @@
   "navbar": {
     "links": [
       {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
+        "label": "GitHub",
+        "href": "https://github.com/ml-explore/mlx"
       }
     ],
     "primary": {
       "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
+      "label": "MLX Community",
+      "href": "https://huggingface.co/mlx-community"
     }
   },
   "contextual": {
     "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
+      "copy",
+      "view",
+      "chatgpt",
+      "claude",
+      "perplexity",
+      "mcp",
+      "cursor",
+      "vscode"
+    ]
   },
   "footer": {
     "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
+      "github": "https://github.com/ml-explore/mlx",
+      "x": "https://x.com/mintlify"
     }
   }
 }
