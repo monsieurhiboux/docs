@@ -11,7 +11,7 @@
   "navigation": {
     "tabs": [
       {
-        "tab": "MLX & Apple Silicon",
+        "tab": "MLX Framework",
         "groups": [
           {
             "group": "Démarrer",
@@ -19,6 +19,34 @@
               "mlx/introduction",
               "mlx/installation",
               "mlx/quickstart"
+            ]
+          },
+          {
+            "group": "Modèles",
+            "pages": [
+              "mlx/models/mlx-community",
+              "mlx/models/quantization"
+            ]
+          },
+          {
+            "group": "Ressources",
+            "pages": [
+              "mlx/ecosystem/awesome-mlx",
+              "mlx/resources/community",
+              "mlx/resources/official-repos"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "LLMs sur Mac",
+        "groups": [
+          {
+            "group": "Inférence",
+            "pages": [
+              "mlx/local-llms/overview",
+              "mlx/local-llms/mlx-lm-generate",
+              "mlx/local-llms/ollama-llamacpp"
             ]
           },
           {
@@ -31,47 +59,44 @@
             ]
           },
           {
-            "group": "LLMs Locaux",
+            "group": "Intégration Apps",
             "pages": [
-              "mlx/local-llms/overview",
-              "mlx/local-llms/mlx-lm-generate",
-              "mlx/local-llms/ollama-llamacpp",
               "mlx/local-llms/swift-integration"
             ]
-          },
+          }
+        ]
+      },
+      {
+        "tab": "Apple Foundation Models",
+        "groups": [
           {
-            "group": "Apple Foundation Models",
+            "group": "Démarrer",
             "pages": [
               "mlx/foundation-models/introduction",
-              "mlx/foundation-models/availability",
+              "mlx/foundation-models/availability"
+            ]
+          },
+          {
+            "group": "Construire des prompts",
+            "pages": [
               "mlx/foundation-models/prompts",
-              "mlx/foundation-models/instructions",
+              "mlx/foundation-models/instructions"
+            ]
+          },
+          {
+            "group": "Fonctionnalités avancées",
+            "pages": [
               "mlx/foundation-models/guided-generation",
               "mlx/foundation-models/tools",
+              "mlx/foundation-models/streaming-ux"
+            ]
+          },
+          {
+            "group": "Production",
+            "pages": [
               "mlx/foundation-models/session-lifecycle",
               "mlx/foundation-models/error-handling",
-              "mlx/foundation-models/streaming-ux",
               "mlx/foundation-models/architecture-patterns"
-            ]
-          },
-          {
-            "group": "Modèles",
-            "pages": [
-              "mlx/models/mlx-community",
-              "mlx/models/quantization"
-            ]
-          },
-          {
-            "group": "Écosystème",
-            "pages": [
-              "mlx/ecosystem/awesome-mlx"
-            ]
-          },
-          {
-            "group": "Ressources",
-            "pages": [
-              "mlx/resources/community",
-              "mlx/resources/official-repos"
             ]
           }
         ]
