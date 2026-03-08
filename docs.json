@@ -34,14 +34,31 @@
             "group": "LLMs Locaux",
             "pages": [
               "mlx/local-llms/overview",
+              "mlx/local-llms/mlx-lm-generate",
               "mlx/local-llms/ollama-llamacpp",
               "mlx/local-llms/swift-integration"
             ]
           },
           {
+            "group": "Apple Foundation Models",
+            "pages": [
+              "mlx/foundation-models/introduction",
+              "mlx/foundation-models/availability",
+              "mlx/foundation-models/prompts",
+              "mlx/foundation-models/instructions",
+              "mlx/foundation-models/guided-generation",
+              "mlx/foundation-models/tools",
+              "mlx/foundation-models/session-lifecycle",
+              "mlx/foundation-models/error-handling",
+              "mlx/foundation-models/streaming-ux",
+              "mlx/foundation-models/architecture-patterns"
+            ]
+          },
+          {
             "group": "Modèles",
             "pages": [
-              "mlx/models/mlx-community"
+              "mlx/models/mlx-community",
+              "mlx/models/quantization"
             ]
           },
           {

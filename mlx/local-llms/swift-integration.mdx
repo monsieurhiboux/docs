@@ -199,24 +199,28 @@ class CoreMLLLMEngine {
 }
 ```
 
-### Utiliser Apple Foundation Models (iOS 18+)
+### Apple Foundation Models (iOS 26+ / macOS 26+)
 
-Apple a introduit les **Foundation Models** pour l'accès unifié aux modèles on-device :
+Depuis iOS 26, Apple propose le framework **FoundationModels** pour l'inférence on-device intégrée nativement dans SwiftUI. C'est l'option la plus simple pour ajouter de l'IA dans une app :
 
 ```swift
-import FoundationModels  // iOS 18+, macOS 15+
+import FoundationModels
 
-@available(iOS 18.0, macOS 15.0, *)
-class AppleFoundationLLM {
-    func generate(prompt: String) async throws -> String {
-        let model = SystemLanguageModel.default
-        let session = LanguageModelSession(model: model)
+let session = LanguageModelSession(
+    instructions: "Tu es un assistant concis."
+)
 
-        let response = try await session.respond(to: Prompt(prompt))
-        return response.content
-    }
-}
+let response = try await session.respond(
+    to: "Quels sont les avantages du fine-tuning ?"
+)
+print(response.content)
 ```
+
+Le framework inclut la Guided Generation (`@Generable`), les Tools, le streaming, et une gestion complète des erreurs.
+
+<Card title="Guide complet Foundation Models" icon="apple" href="/mlx/foundation-models/introduction">
+  Découvrir toutes les fonctionnalités : prompts, sessions, tools, streaming et architecture →
+</Card>
 
 ---
 
