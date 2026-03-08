@@ -129,7 +129,7 @@ response = try await session.respond(to: prompt).content
 ```
 
 <Info>
-Le PromptBuilder assemble automatiquement toutes les parties. Pas besoin de gérer les espaces entre les lignes — le modèle s'en occupe.
+Le PromptBuilder fonctionne comme le `ViewBuilder` de SwiftUI — c'est un **result builder** déclaratif. Il possède des fonctions internes (`buildArray()`, `buildEither()`, `buildOptional()`) qui savent gérer les tableaux, les conditions et les optionnels automatiquement. Vous n'avez pas besoin de les appeler manuellement — le compilateur s'en charge.
 </Info>
 
 ---
@@ -246,6 +246,89 @@ Cette fenêtre inclut :
 <Warning>
 Quand la limite de 4 096 tokens est atteinte, le `LanguageModelSession` lance une exception. Créez un nouveau `LanguageModelSession` pour réinitialiser le compteur.
 </Warning>
+
+---
+
+## Prompts réutilisables avec PromptRepresentable
+
+Si vous utilisez le même prompt à plusieurs endroits, créez un type qui implémente le protocole `PromptRepresentable` :
+
+```swift
+struct RecipeSummaryPrompt: PromptRepresentable {
+    let recipeName: String
+    let ingredients: [String]
+
+    var prompt: Prompt {
+        Prompt {
+            "Résume cette recette en 3 étapes maximum."
+            "Recette : \(recipeName)"
+            "Ingrédients :"
+            ingredients
+        }
+    }
+}
+
+// Utilisation
+let myPrompt = RecipeSummaryPrompt(
+    recipeName: "Tarte aux pommes",
+    ingredients: ["pommes", "pâte feuilletée", "sucre"]
+)
+response = try await session.respond(to: myPrompt).content
+```
+
+Le bénéfice : vos prompts deviennent des **types Swift testables et réutilisables**, et vous pouvez les passer directement à `respond(to:)` sans avoir à les reconstruire à chaque fois.
+
+---
+
+## Conseils pour écrire de bons prompts
+
+Le modèle on-device d'Apple est plus compact que les modèles cloud. Des prompts bien rédigés font une vraie différence :
+
+<AccordionGroup>
+  <Accordion title="Soyez concis et direct" icon="bullseye">
+    Le modèle performe mieux avec des prompts courts et focalisés. Évitez les introductions longues. Au lieu de "Je voudrais que tu m'aides à…", dites directement ce que vous voulez.
+
+    ```swift
+    // ❌ Trop verbeux
+    "Je souhaiterais que tu m'aides à créer, si tu le veux bien, un résumé court."
+
+    // ✅ Direct
+    "Résume ce texte en 3 bullet points."
+    ```
+  </Accordion>
+
+  <Accordion title="Une tâche par prompt" icon="list-check">
+    Demandez une seule chose à la fois. Les prompts qui demandent plusieurs tâches distinctes donnent des résultats moins prévisibles.
+
+    ```swift
+    // ❌ Plusieurs tâches
+    "Résume ce texte, traduis-le en espagnol, et liste les mots-clés."
+
+    // ✅ Une tâche
+    "Résume ce texte en 3 bullet points."
+    ```
+  </Accordion>
+
+  <Accordion title="Soyez spécifique sur le format" icon="ruler">
+    Si vous attendez un format particulier (3 bullet points, une liste numérotée, un seul mot), dites-le explicitement. Sans quoi le modèle choisit lui-même.
+
+    ```swift
+    "Réponds uniquement par 'oui' ou 'non'."
+    "Génère exactement 5 idées, numérotées."
+    "Fournis la réponse sous forme d'un seul mot."
+    ```
+  </Accordion>
+
+  <Accordion title="Pas besoin de mise en forme spéciale" icon="text">
+    Vous n'avez pas besoin de mettre les variables en majuscules, de les entourer de crochets, ou d'utiliser `.lowercased()`. Le modèle comprend le contexte naturellement.
+
+    ```swift
+    // Les deux fonctionnent pareil
+    "Crée une recette pour un \(selectedType)"
+    "Crée une recette pour un \(selectedType.lowercased())"
+    ```
+  </Accordion>
+</AccordionGroup>
 
 ---
 

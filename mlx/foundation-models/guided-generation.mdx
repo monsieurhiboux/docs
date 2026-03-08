@@ -53,6 +53,10 @@ let structuredResponse = try await session.respond(
 
 Le paramètre `generating` accepte n'importe quel type `@Generable`, y compris les tableaux.
 
+<Info>
+**Pourquoi `.self` ?** En Swift, `Book` est un type, mais `Book.self` est une **référence au type lui-même** (une métadonnée). Le paramètre `generating:` attend une référence de type, pas une valeur. C'est la même syntaxe que dans `JSONDecoder().decode(Book.self, from: data)` — vous dites au système "quel type créer", pas "crée-en une instance".
+</Info>
+
 ### 3. Utiliser la réponse structurée
 
 ```swift
@@ -116,6 +120,31 @@ let intResponse = try await session.respond(
 ```
 
 Types supportés : `Bool`, `Int`, `Float`, `Double`, `Decimal`, `Array`.
+
+<Warning>
+**`[String].self` ne fonctionne pas directement.** Si vous voulez demander une simple liste de chaînes, vous devez créer un type wrapper :
+
+```swift
+// ❌ Ne compile pas
+let response = try await session.respond(
+    to: "Donne-moi 5 idées de noms d'app",
+    generating: [String].self
+)
+
+// ✅ Créez un wrapper @Generable
+@Generable
+struct NameList {
+    @Guide(description: "Liste de 5 noms d'app créatifs")
+    var names: [String]
+}
+
+let response = try await session.respond(
+    to: "Donne-moi 5 idées de noms d'app",
+    generating: NameList.self
+)
+let names = response.content.names  // [String]
+```
+</Warning>
 
 ---
 
@@ -196,6 +225,48 @@ struct Recipe {
 | `.maximum(n)` | Valeur numérique maximum | `.maximum(100)` |
 | `.element(...)` | Contrainte sur chaque élément du tableau | `.element(.anyOf([...]))` |
 | `.pattern(...)` | Regex pour les strings | `.pattern(/^[A-Z]/)` |
+
+---
+
+## Generables imbriqués
+
+Un type `@Generable` peut contenir d'autres types `@Generable` — le modèle remplit toute la hiérarchie d'un seul appel :
+
+```swift
+@Generable
+struct Ingredient {
+    @Guide(description: "Nom de l'ingrédient")
+    var name: String
+
+    @Guide(description: "Quantité en grammes", .range(1...1000))
+    var grams: Int
+}
+
+@Generable
+struct Recipe {
+    @Guide(description: "Le nom de la recette")
+    var name: String
+
+    @Guide(description: "Les ingrédients avec leurs quantités")
+    var ingredients: [Ingredient]  // Tableau d'un autre @Generable
+
+    @Guide(description: "Étapes de préparation")
+    var steps: [String]
+}
+
+// Un seul appel génère tout l'arbre
+let response = try await session.respond(
+    to: "Génère une recette de soupe de tomates",
+    generating: Recipe.self
+)
+let recipe = response.content
+// recipe.ingredients[0].name → "Tomates"
+// recipe.ingredients[0].grams → 400
+```
+
+<Info>
+L'imbrication peut aller plusieurs niveaux en profondeur. Le modèle remplit la structure complète en un seul passage — vous n'avez pas besoin de faire plusieurs appels pour construire vos objets.
+</Info>
 
 ---
 
