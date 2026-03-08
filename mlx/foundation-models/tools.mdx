@@ -1,0 +1,288 @@
+---
+title: "Tools"
+description: "Étendre les capacités du modèle avec des Tools pour accéder à des données et APIs externes"
+icon: "wrench"
+---
+
+# Tools
+
+Le modèle on-device d'Apple est entraîné sur des données statiques. Il ne peut pas connaître la météo actuelle, les événements du calendrier de l'utilisateur, ou interroger une API. Les **Tools** permettent d'étendre ses capacités.
+
+---
+
+## Pourquoi créer un Tool ?
+
+```
+┌──────────┐     ┌──────────────────┐     ┌──────────┐
+│  Prompt  │ ──▶ │      Model       │ ──▶ │ Response │
+│          │     │                  │     │          │
+│ "Quel    │     │  Est-ce que j'ai │     │ "Il fait │
+│  temps   │     │  un Tool pour    │     │  22°C et │
+│  fait-il │     │  ça ?            │     │  soleil  │
+│  à       │     │    ↓ Oui         │     │  à       │
+│  Paris?" │     │  → WeatherTool   │     │  Paris." │
+└──────────┘     └──────────────────┘     └──────────┘
+```
+
+Le modèle décide **automatiquement** quand utiliser un Tool en fonction de sa description.
+
+---
+
+## Anatomie d'un Tool
+
+Un Tool nécessite 4 éléments :
+
+```swift
+struct WeatherTool: Tool {
+
+    // 1. Conformité au protocole Tool
+
+    // 2. Un nom unique
+    let name = "getWeather"
+
+    // 3. Une description en langage naturel
+    let description = "Obtient la météo actuelle pour un lieu donné"
+
+    // 4. Des Arguments (optionnels) — ce que le modèle fournit
+    @Generable
+    struct Arguments {
+        @Guide(description: "La ville ou le lieu pour la météo")
+        let location: String
+    }
+
+    // 5. La fonction call — exécutée quand le modèle utilise le tool
+    func call(arguments: Arguments) async throws -> String {
+        // Normalement : appel API réel
+        return "Il fait actuellement 22°C et ensoleillé à \(arguments.location)."
+    }
+}
+```
+
+Le `name` et la `description` sont inclus avec chaque prompt pour que le modèle sache quand et comment utiliser le Tool.
+
+---
+
+## Flux d'exécution d'un Tool
+
+```
+  Utilisateur           Modèle              Tool
+      │                   │                   │
+      │  "Météo à Paris"  │                   │
+      │──────────────────▶│                   │
+      │                   │  J'ai un Tool     │
+      │                   │  pour ça          │
+      │                   │                   │
+      │                   │  Créer Arguments  │
+      │                   │  location: Paris  │
+      │                   │──────────────────▶│
+      │                   │                   │
+      │                   │  "22°C, soleil"   │
+      │                   │◀──────────────────│
+      │                   │                   │
+      │  "Il fait 22°C    │                   │
+      │   et soleil à     │                   │
+      │   Paris."         │                   │
+      │◀──────────────────│                   │
+```
+
+Le modèle reformule la réponse du Tool dans son propre style.
+
+---
+
+## Utiliser un Tool
+
+Passez vos Tools au `LanguageModelSession` lors de la création :
+
+```swift
+struct WeatherView: View {
+    @State private var response = ""
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Button("Obtenir la météo") {
+                Task {
+                    let session = LanguageModelSession(
+                        tools: [WeatherTool()]  // Tableau de Tools
+                    )
+                    response = try await session.respond(
+                        to: "Quel temps fait-il à San Francisco ?"
+                    ).content
+                }
+            }
+            .buttonStyle(.borderedProminent)
+
+            Text(.init(response))
+                .padding()
+        }
+        .font(.title)
+    }
+}
+```
+
+<Info>
+Vous n'avez pas besoin de dire au prompt d'utiliser le Tool. Le modèle décide seul en fonction du `name` et de la `description` du Tool.
+</Info>
+
+---
+
+## Tool avec sortie structurée
+
+La fonction `call` d'un Tool peut retourner n'importe quel type `@Generable` :
+
+```swift
+@Generable
+struct FoundBook: Codable {
+    let title: String
+    let author: String
+    let year: Int
+}
+
+struct BookTool: Tool {
+    let name = "findBook"
+    let description = "Trouve une recommandation de livre"
+
+    @Generable
+    struct Arguments: Codable {
+        // Arguments vides — le tool n'a pas besoin de paramètres
+    }
+
+    func call(arguments: Arguments) async throws -> FoundBook {
+        return FoundBook(
+            title: "Dune",
+            author: "Frank Herbert",
+            year: 1965
+        )
+    }
+}
+```
+
+### Réutiliser le type du Tool comme sortie du modèle
+
+```swift
+let session = LanguageModelSession(
+    tools: [BookTool()],
+    instructions: "Utilise le tool findBook pour recommander un livre."
+)
+
+// Le modèle retourne un FoundBook typé
+let book = try await session.respond(
+    to: "Recommande un livre de SF",
+    generating: FoundBook.self  // Combiner Tool + Guided Generation
+).content
+
+print(book.title)   // "Dune"
+print(book.author)  // "Frank Herbert"
+print(book.year)    // 1965
+```
+
+<Warning>
+Sans `generating`, le modèle reformule la donnée du Tool en texte libre. Il peut omettre des champs (comme `year`). Combinez avec Guided Generation pour garder le contrôle sur le format.
+</Warning>
+
+---
+
+## Gestion des erreurs de Tool
+
+### Créer une erreur custom
+
+```swift
+enum VolcanicActivityError: LocalizedError {
+    case noDataAvailable(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .noDataAvailable(let location):
+            return "Pas de données pour '\(location)'. Régions disponibles : Hawaii, Italie, Islande, Japon."
+        }
+    }
+
+    var recoverySuggestion: String? {
+        switch self {
+        case .noDataAvailable:
+            return "Essayez une autre région ou un autre volcan."
+        }
+    }
+}
+```
+
+### Lancer l'erreur depuis le Tool
+
+```swift
+struct VolcanicActivityTool: Tool {
+    let name = "getVolcanicActivity"
+    let description = "Obtient les données d'activité volcanique en temps réel"
+
+    @Generable
+    struct Arguments {
+        @Guide(description: "La région ou le nom du volcan")
+        let location: String
+    }
+
+    func call(arguments: Arguments) async throws -> String {
+        let data = ["hawaii": "Kilauea : Actif, flux de lave continu."]
+        guard let info = data[arguments.location.lowercased()] else {
+            throw VolcanicActivityError.noDataAvailable(arguments.location)
+        }
+        return info
+    }
+}
+```
+
+### Attraper l'erreur
+
+```swift
+do {
+    let result = try await session.respond(
+        to: "Activité volcanique en Antarctique ?"
+    )
+    response = result.content
+} catch let error as LanguageModelSession.ToolCallError {
+    errorMessage = "Tool '\(error.tool.name)' a échoué : \(error.underlyingError.localizedDescription)"
+} catch {
+    errorMessage = "Erreur inattendue : \(error.localizedDescription)"
+}
+```
+
+Le `ToolCallError` donne accès au nom du Tool qui a échoué et à l'erreur sous-jacente avec `recoverySuggestion` si implémentée.
+
+---
+
+## Idées de Tools
+
+<CardGroup cols={2}>
+  <Card title="📅 Calendrier" icon="calendar">
+    Créer, modifier, chercher des événements via EventKit
+  </Card>
+  <Card title="✅ Rappels" icon="bell">
+    Ajouter des tâches ou rappels depuis le langage naturel
+  </Card>
+  <Card title="📧 Mail" icon="envelope">
+    Trier les emails, suggérer des actions (archiver, signaler)
+  </Card>
+  <Card title="🏠 HomeKit" icon="house">
+    Interpréter "baisse les lumières du salon" en actions HomeKit
+  </Card>
+  <Card title="💾 Base de données" icon="database">
+    Requêtes en langage naturel sur SQLite ou SwiftData
+  </Card>
+  <Card title="🛒 Shopping" icon="cart-shopping">
+    Assistant d'achat personnalisé avec vérification d'inventaire
+  </Card>
+</CardGroup>
+
+---
+
+## Bonnes pratiques
+
+- Écrivez des **descriptions claires** pour `name` et `description` — c'est ce que le modèle utilise pour décider quand appeler le Tool
+- Utilisez **`@Guide`** dans les Arguments pour aider le modèle à fournir les bonnes valeurs
+- **Combinez Tool + Guided Generation** pour garder le contrôle sur le format de sortie
+- Implémentez des **erreurs descriptives** avec `LocalizedError` et `recoverySuggestion`
+- Le modèle peut reformuler la sortie du Tool — ne vous attendez pas à un retour identique
+- Vous pouvez fournir **plusieurs Tools** au modèle via le tableau `tools:`
+
+---
+
+<Card title="Retour à l'introduction" icon="house" href="/mlx/foundation-models/introduction">
+  Revenir à la vue d'ensemble Foundation Models →
+</Card>

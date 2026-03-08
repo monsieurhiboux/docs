@@ -1,0 +1,173 @@
+---
+title: "Instructions"
+description: "Configurer le comportement du LanguageModelSession avec des instructions personnalisées"
+icon: "list-check"
+---
+
+# Instructions
+
+Les **Instructions** contrôlent le comportement du `LanguageModelSession`. Elles définissent la personnalité, le format de réponse et les contraintes du modèle — comme donner un briefing à un assistant avant qu'il ne commence à travailler.
+
+---
+
+## Pourquoi définir des Instructions ?
+
+Sans instructions personnalisées, le modèle utilise ses instructions par défaut (génériques). Le résultat peut être verbeux ou mal adapté à votre besoin.
+
+| Sans instructions | Avec instructions |
+|---|---|
+| Réponse longue et générique sur les véhicules électriques avec 9 points détaillés | 3 bullet points concis + une conclusion d'une phrase |
+
+Les instructions produisent des réponses **cohérentes et prévisibles** d'un prompt à l'autre.
+
+---
+
+## Définir des Instructions
+
+### Via une string
+
+```swift
+let session = LanguageModelSession(
+    instructions: """
+    Tu es un partenaire créatif d'idéation qui génère 5-8 idées
+    diverses et mémorables avec de brèves explications pour
+    toute demande de brainstorming.
+    """
+)
+
+Task {
+    response = try await session.respond(
+        to: "Je construis une app de méditation pour professionnels. Aide-moi à brainstormer des noms."
+    ).content
+}
+```
+
+### Via un objet Instructions (InstructionsBuilder)
+
+Comme le `PromptBuilder`, Apple fournit un `InstructionsBuilder` déclaratif :
+
+```swift
+private let instructions = Instructions {
+    "Tu es un expert en résumé."
+    "Crée des résumés concis en 3-5 bullet points."
+    "Chaque bullet ne doit pas dépasser 10 mots."
+}
+
+// Utilisation
+let session = LanguageModelSession(instructions: instructions)
+```
+
+Le builder supporte les mêmes fonctionnalités que le PromptBuilder : variables, conditions `if/else`, tableaux, etc.
+
+### Multi-line avec string literals
+
+```swift
+private let instructions = Instructions {
+    """
+    Rôle : Tu es un expert en poésie pour enfants de 4-8 ans.
+    Style : Utilise des rimes simples, un langage ludique et des thèmes
+    adaptés à l'âge.
+    Format : Chaque poème doit faire 4-8 lignes.
+    Ton : Joyeux et encourageant.
+    """
+}
+```
+
+---
+
+## Instructions vs Prompts
+
+| | Instructions | Prompts |
+|---|---|---|
+| **Analogie** | La personnalité de l'assistant | La question posée à l'assistant |
+| **Durée** | Persistent pour toute la session | Changent à chaque requête |
+| **Priorité** | Plus haute que les prompts | Plus basse |
+| **Modification** | Immutables une fois la session créée | Nouveaux à chaque appel |
+| **Tokens** | Comptés à chaque prompt envoyé | Comptés une seule fois |
+
+<Warning>
+Les instructions sont envoyées avec **chaque prompt** de la session. Elles consomment des tokens à chaque appel. Gardez-les concises.
+</Warning>
+
+---
+
+## Les 5 principes pour de bonnes Instructions
+
+<Steps>
+  <Step title="Être clair et spécifique">
+    ❌ `"Crée des dialogues de jeu pour répondre à l'utilisateur."`
+
+    ✅ `"Tu es un générateur de dialogues de jeu spécialisé dans les conversations dynamiques pour les PNJ."`
+  </Step>
+
+  <Step title="Définir le rôle et l'objectif">
+    `"Tu es un assistant culinaire qui aide les débutants à préparer des plats simples en moins de 30 minutes."`
+  </Step>
+
+  <Step title="Fournir des exemples">
+    `"Format de réponse attendu : [Nom du personnage]: [Ligne de dialogue]. Exemple : 'Garde : Halte ! Vous ne pouvez pas passer sans la permission du roi.'"`
+  </Step>
+
+  <Step title="Poser des contraintes">
+    `"Évite d'introduire des concepts hors de l'univers du jeu. Les réponses ne doivent pas dépasser 2 phrases."`
+  </Step>
+
+  <Step title="Préciser le format de sortie">
+    `"Structure toujours tes résumés en exactement 3 bullet points. Chaque bullet ne doit pas dépasser 15 mots."`
+  </Step>
+</Steps>
+
+---
+
+## Niveaux de détail
+
+Le niveau de détail des instructions dépend de votre besoin de contrôle :
+
+<AccordionGroup>
+  <Accordion title="Aucune instruction" icon="circle">
+    Les instructions par défaut d'Apple peuvent suffire pour des usages génériques.
+  </Accordion>
+
+  <Accordion title="Instructions simples" icon="circle-half-stroke">
+    ```
+    Tu es un partenaire de brainstorming qui génère,
+    développe et affine des idées.
+    ```
+    Suffisant quand vous voulez orienter le ton sans être très strict.
+  </Accordion>
+
+  <Accordion title="Instructions détaillées" icon="circle-check">
+    ```
+    Tu es un partenaire de brainstorming qui génère,
+    développe et affine des idées.
+    Ton objectif est de stimuler la créativité, poser des
+    questions provocantes et explorer les possibilités sans jugement.
+    Comportements clés :
+    • Pose des questions expansives comme "Et si on poussait plus loin ?"
+    • Offre 3-5 perspectives ou approches.
+    • Remets en question les hypothèses.
+    • Fais des liens avec d'autres concepts ou industries.
+    ```
+    Pour des résultats cohérents et prévisibles.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Bonnes pratiques
+
+<Info>
+Les instructions ne sont que des **guides**. Elles ont une priorité plus haute que les prompts, mais le modèle peut parfois ne pas les suivre exactement. Plus vos instructions sont claires et spécifiques, meilleurs seront les résultats.
+</Info>
+
+- Testez avec différents niveaux de détail
+- Commencez simple, puis ajoutez des contraintes si nécessaire
+- Utilisez des exemples concrets dans vos instructions
+- Gardez les instructions concises pour économiser des tokens
+- N'oubliez pas que les instructions sont immutables — créez une nouvelle session pour les changer
+
+---
+
+<Card title="Prochaine étape : Guided Generation" icon="wand-magic-sparkles" href="/mlx/foundation-models/guided-generation">
+  Générer des réponses structurées avec @Generable et @Guide →
+</Card>

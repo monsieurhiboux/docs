@@ -1,0 +1,236 @@
+---
+title: "mlx-lm : Générer du texte"
+description: "Utiliser mlx-lm en CLI, en Python et comme serveur OpenAI-compatible pour l'inférence LLM sur Mac"
+icon: "terminal"
+---
+
+# mlx-lm : Générer du texte
+
+`mlx-lm` est le package Python officiel de l'écosystème MLX pour charger et utiliser des LLMs sur Apple Silicon. Il offre trois modes d'utilisation : CLI, API Python, et serveur OpenAI-compatible.
+
+---
+
+## Installation
+
+```bash
+pip install mlx-lm
+```
+
+<Note>
+Nécessite Python 3.9+ et un Mac avec Apple Silicon (M1 ou supérieur). Les modèles sont téléchargés automatiquement depuis Hugging Face.
+</Note>
+
+---
+
+## Mode 1 : Ligne de commande (CLI)
+
+### Génération simple
+
+```bash
+mlx_lm.generate \
+  --model mlx-community/Mistral-7B-Instruct-v0.3-4bit \
+  --prompt "Explique le machine learning en 3 phrases"
+```
+
+### Avec un template de chat
+
+```bash
+mlx_lm.generate \
+  --model mlx-community/Llama-3.2-3B-Instruct-4bit \
+  --prompt "Quels sont les avantages du fine-tuning ?" \
+  --max-tokens 500 \
+  --temp 0.7
+```
+
+### Paramètres courants
+
+| Paramètre | Description | Défaut |
+|-----------|-------------|--------|
+| `--model` | ID du modèle Hugging Face ou chemin local | (requis) |
+| `--prompt` | Le texte à envoyer au modèle | (requis) |
+| `--max-tokens` | Nombre maximum de tokens à générer | 100 |
+| `--temp` | Température (créativité). 0 = déterministe | 0.0 |
+| `--top-p` | Nucleus sampling | 1.0 |
+| `--seed` | Graine aléatoire pour la reproductibilité | — |
+| `--adapter-path` | Chemin vers un adaptateur LoRA | — |
+
+### Utiliser un adaptateur LoRA fine-tuné
+
+```bash
+mlx_lm.generate \
+  --model mlx-community/Mistral-7B-Instruct-v0.3-4bit \
+  --adapter-path ./adapters \
+  --prompt "Ton prompt spécialisé ici"
+```
+
+---
+
+## Mode 2 : API Python
+
+Pour une intégration dans vos scripts et applications :
+
+```python
+from mlx_lm import load, generate
+
+# Charger le modèle et le tokenizer
+model, tokenizer = load("mlx-community/Mistral-7B-Instruct-v0.3-4bit")
+
+# Générer du texte
+response = generate(
+    model,
+    tokenizer,
+    prompt="Explique les réseaux de neurones en termes simples.",
+    max_tokens=300,
+    temp=0.7,
+)
+print(response)
+```
+
+### Avec un template de chat
+
+```python
+from mlx_lm import load, generate
+
+model, tokenizer = load("mlx-community/Llama-3.2-3B-Instruct-4bit")
+
+# Appliquer le template de chat du modèle
+messages = [
+    {"role": "system", "content": "Tu es un assistant concis et utile."},
+    {"role": "user", "content": "Comment fonctionne l'attention dans les Transformers ?"}
+]
+
+prompt = tokenizer.apply_chat_template(
+    messages,
+    tokenize=False,
+    add_generation_prompt=True
+)
+
+response = generate(model, tokenizer, prompt=prompt, max_tokens=500)
+print(response)
+```
+
+### Streaming token par token
+
+```python
+from mlx_lm import load, stream_generate
+
+model, tokenizer = load("mlx-community/Mistral-7B-Instruct-v0.3-4bit")
+
+for token in stream_generate(
+    model,
+    tokenizer,
+    prompt="Raconte une courte histoire de science-fiction.",
+    max_tokens=200,
+):
+    print(token, end="", flush=True)
+```
+
+---
+
+## Mode 3 : Serveur OpenAI-compatible
+
+`mlx-lm` inclut un serveur HTTP qui implémente l'API OpenAI, permettant d'utiliser n'importe quel client OpenAI (Python SDK, curl, applications tierces) avec un modèle local.
+
+### Lancer le serveur
+
+```bash
+mlx_lm.server \
+  --model mlx-community/Mistral-7B-Instruct-v0.3-4bit \
+  --port 8080
+```
+
+### Appeler depuis Python (SDK OpenAI)
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://localhost:8080/v1",
+    api_key="not-needed"  # Pas d'auth nécessaire en local
+)
+
+response = client.chat.completions.create(
+    model="mlx-community/Mistral-7B-Instruct-v0.3-4bit",
+    messages=[
+        {"role": "system", "content": "Tu es un assistant utile."},
+        {"role": "user", "content": "Explique MLX en une phrase."}
+    ],
+    max_tokens=200,
+    temperature=0.7,
+)
+
+print(response.choices[0].message.content)
+```
+
+### Appeler avec curl
+
+```bash
+curl http://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "mlx-community/Mistral-7B-Instruct-v0.3-4bit",
+    "messages": [
+      {"role": "user", "content": "Bonjour !"}
+    ],
+    "max_tokens": 100
+  }'
+```
+
+### Endpoints disponibles
+
+| Endpoint | Description |
+|----------|-------------|
+| `POST /v1/chat/completions` | Chat avec messages (recommandé) |
+| `POST /v1/completions` | Complétion de texte brut |
+| `GET /v1/models` | Liste des modèles chargés |
+
+<Info>
+Le serveur `mlx_lm.server` est idéal pour intégrer un LLM local dans des apps web, des scripts d'automatisation, ou comme remplacement local de l'API OpenAI pendant le développement.
+</Info>
+
+---
+
+## Comparaison des modes
+
+| Critère | CLI | API Python | Serveur HTTP |
+|---------|-----|-----------|--------------|
+| **Cas d'usage** | Tests rapides, scripts | Applications Python | Apps web, multi-clients |
+| **Streaming** | ❌ | ✅ `stream_generate` | ✅ SSE |
+| **Multi-requêtes** | Non | Manuel | Oui (HTTP) |
+| **Compatible OpenAI** | Non | Non | ✅ |
+| **Performance** | Bon | Bon | Bon (overhead HTTP minimal) |
+
+---
+
+## Résolution de problèmes
+
+<AccordionGroup>
+  <Accordion title="Erreur mémoire (out of memory)" icon="triangle-exclamation">
+    Le modèle est trop gros pour votre RAM. Solutions :
+    - Utilisez un modèle quantifié en **4-bit** (suffixe `-4bit`)
+    - Fermez les applications gourmandes en mémoire
+    - Réduisez `--max-tokens`
+    - Essayez un modèle plus petit (3B au lieu de 7B)
+  </Accordion>
+
+  <Accordion title="Le modèle ne suit pas les instructions" icon="circle-question">
+    Assurez-vous d'utiliser un modèle **Instruct** (pas un modèle base). Les modèles base génèrent de la complétion de texte brut, pas des réponses conversationnelles.
+
+    Utilisez le template de chat du modèle via `tokenizer.apply_chat_template()` en Python.
+  </Accordion>
+
+  <Accordion title="Téléchargement lent du modèle" icon="clock">
+    Les modèles sont téléchargés depuis Hugging Face. Le premier chargement peut prendre du temps. Les modèles sont ensuite cachés dans `~/.cache/huggingface/hub/`.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Modèles MLX Community" icon="database" href="/mlx/models/mlx-community">
+    Découvrir les modèles prêts à l'emploi →
+  </Card>
+  <Card title="Fine-tuning avec LoRA" icon="sliders" href="/mlx/fine-tuning/lora-guide">
+    Adapter un modèle à votre cas d'usage →
+  </Card>
+</CardGroup>

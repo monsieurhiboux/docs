@@ -1,0 +1,275 @@
+---
+title: "Streaming & UX"
+description: "Créer des interfaces réactives avec le streaming de réponses et les patterns SwiftUI essentiels"
+icon: "bolt"
+---
+
+# Streaming & UX
+
+Le streaming affiche la réponse du modèle **au fur et à mesure** qu'elle est générée, créant une expérience "live" bien plus engageante qu'une réponse en bloc. Cette page couvre les deux modes de réponse et les patterns SwiftUI pour une UX optimale.
+
+---
+
+## Deux modes de réponse
+
+<CardGroup cols={2}>
+  <Card title="All-at-Once (respond)" icon="circle-check">
+    **Idéal quand :**
+    - La réponse complète est nécessaire pour la logique
+    - L'utilisateur n'attend pas (tâche en arrière-plan)
+    - Prompts courts avec délai acceptable
+    - La vue nécessite tout le contenu d'un coup
+  </Card>
+  <Card title="Streaming (streamResponse)" icon="bolt">
+    **Idéal quand :**
+    - Vous voulez afficher le contenu au fur et à mesure
+    - La réponse est longue (impression de réactivité)
+    - Vous voulez traiter la réponse en chunks
+    - UX de type "chat" ou "génération live"
+  </Card>
+</CardGroup>
+
+---
+
+## All-at-Once : respond(to:)
+
+```swift
+struct AllAtOnceView: View {
+    @State private var response = ""
+
+    var body: some View {
+        VStack {
+            Button("Générer un poème") {
+                Task {
+                    let session = LanguageModelSession()
+                    response = try await session.respond(
+                        to: "Écris un poème sur un chat."
+                    ).content
+                }
+            }
+            .buttonStyle(.borderedProminent)
+
+            ScrollView {
+                Text(response)
+                    .padding()
+            }
+        }
+        .font(.title)
+    }
+}
+```
+
+La réponse apparaît d'un seul coup une fois la génération terminée.
+
+---
+
+## Streaming : streamResponse(to:)
+
+```swift
+struct StreamingView: View {
+    @State private var response = ""
+
+    var body: some View {
+        VStack {
+            Button("Générer un poème") {
+                let session = LanguageModelSession()
+                response = ""
+
+                Task {
+                    for try await partialResponse in session.streamResponse(
+                        to: "Écris un poème sur un chat."
+                    ) {
+                        response = partialResponse.content
+                    }
+                }
+            }
+            .buttonStyle(.borderedProminent)
+
+            ScrollView {
+                Text(response)
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                    .padding()
+            }
+        }
+        .font(.title)
+    }
+}
+```
+
+### Comment fonctionne le streaming ?
+
+La boucle `for try await` reçoit des réponses partielles **qui grandissent progressivement** :
+
+```
+partialResponse.content = "Dans les ombres"
+partialResponse.content = "Dans les ombres de la lune,"
+partialResponse.content = "Dans les ombres de la lune, doux et"
+partialResponse.content = "Dans les ombres de la lune, doux et calme,"
+partialResponse.content = "Dans les ombres de la lune, doux et calme, Un félin danseur."
+```
+
+La réponse est **remplacée** (pas additionnée) à chaque itération — `partialResponse.content` contient tout le texte accumulé jusque-là.
+
+---
+
+## Chat complet avec Streaming
+
+Un pattern courant pour créer un chat IA dans votre app :
+
+```swift
+struct AIChatView: View {
+    @State private var session = LanguageModelSession()
+    @State private var userInput = ""
+    @State private var currentResponse = ""
+    @State private var messages: [(role: String, text: String)] = []
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Zone de messages
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 12) {
+                    ForEach(Array(messages.enumerated()), id: \.offset) { _, msg in
+                        HStack {
+                            if msg.role == "user" { Spacer() }
+                            Text(msg.text)
+                                .padding(12)
+                                .background(
+                                    msg.role == "user"
+                                        ? Color.blue.opacity(0.2)
+                                        : Color.gray.opacity(0.15)
+                                )
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                            if msg.role == "ai" { Spacer() }
+                        }
+                    }
+
+                    // Réponse en cours de streaming
+                    if !currentResponse.isEmpty {
+                        Text(currentResponse)
+                            .padding(12)
+                            .background(Color.gray.opacity(0.15))
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                    }
+                }
+                .padding()
+            }
+
+            Divider()
+
+            // Zone de saisie
+            HStack {
+                TextField("Message...", text: $userInput)
+                    .textFieldStyle(.roundedBorder)
+
+                Button("Envoyer") {
+                    sendMessage()
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(session.isResponding || userInput.isEmpty)
+            }
+            .padding()
+        }
+    }
+
+    private func sendMessage() {
+        let prompt = userInput
+        userInput = ""
+        messages.append((role: "user", text: prompt))
+        currentResponse = ""
+
+        Task {
+            for try await partial in session.streamResponse(to: prompt) {
+                currentResponse = partial.content
+            }
+            // Streaming terminé — ajouter à l'historique
+            messages.append((role: "ai", text: currentResponse))
+            currentResponse = ""
+        }
+    }
+}
+```
+
+---
+
+## Rendre le Markdown lisible
+
+Le modèle génère souvent du Markdown (titres avec `#`, listes, **gras**). `Text` ne le rend pas nativement, mais vous pouvez le convertir :
+
+```swift
+// Convertir le Markdown en AttributedString
+Text(.init(response))  // .init() parse le Markdown automatiquement
+
+// Ou explicitement
+if let attributed = try? AttributedString(markdown: response) {
+    Text(attributed)
+}
+```
+
+`Text(.init(markdownString))` est le raccourci le plus simple pour rendre le Markdown dans SwiftUI.
+
+---
+
+## Indicateurs d'état UX
+
+### ProgressView pendant la génération
+
+```swift
+.overlay {
+    if session.isResponding {
+        VStack {
+            ProgressView()
+            Text("Génération en cours...")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding()
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+    }
+}
+```
+
+### Désactiver le bouton pendant le traitement
+
+```swift
+Button("Générer") { /* ... */ }
+    .disabled(session.isResponding)
+```
+
+### Animation de typing
+
+```swift
+struct TypingIndicator: View {
+    @State private var dotCount = 0
+    let timer = Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()
+
+    var body: some View {
+        Text("L'IA réfléchit" + String(repeating: ".", count: dotCount))
+            .foregroundStyle(.secondary)
+            .onReceive(timer) { _ in
+                dotCount = (dotCount + 1) % 4
+            }
+    }
+}
+```
+
+---
+
+## Performance : Streaming vs All-at-Once
+
+| Aspect | respond | streamResponse |
+|--------|---------|----------------|
+| **Temps perçu** | Long (attente puis réponse) | Court (début immédiat) |
+| **Temps réel** | Identique | Identique |
+| **UX** | "L'app est bloquée ?" | "L'IA travaille en direct" |
+| **Complexité code** | Simple | Un peu plus complexe (boucle async) |
+| **Cas d'usage** | Background tasks, Guided Generation | Chat, génération de texte visible |
+
+<Info>
+**Astuce** : utilisez `respond(to:)` pour la Guided Generation (structs) et `streamResponse(to:)` pour le texte libre affiché à l'utilisateur.
+</Info>
+
+---
+
+<Card title="Prochaine étape : Patterns d'architecture" icon="sitemap" href="/mlx/foundation-models/architecture-patterns">
+  Concevoir l'architecture IA de votre app →
+</Card>

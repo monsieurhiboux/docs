@@ -1,0 +1,242 @@
+---
+title: "Guided Generation"
+description: "Générer des réponses structurées en objets Swift avec @Generable et @Guide"
+icon: "wand-magic-sparkles"
+---
+
+# Guided Generation
+
+La **Guided Generation** est la fonctionnalité la plus puissante de FoundationModels. Au lieu de recevoir du texte brut, vous définissez un type Swift et le modèle remplit automatiquement ses propriétés.
+
+---
+
+## Pourquoi la Guided Generation ?
+
+Comparons une même requête avec et sans :
+
+| Sans Guided Generation | Avec Guided Generation |
+|---|---|
+| `"Voici 3 livres de SF : 'Dune' de Frank Herbert, 'Neuromancer' de William Gibson..."` | Un tableau `[Book]` avec des propriétés `title` et `author` typées |
+| Texte non structuré, difficile à parser | Objets Swift natifs, faciles à afficher en UI |
+| Format imprévisible | Format cohérent à chaque appel |
+
+---
+
+## Le processus en 3 étapes
+
+### 1. Structurer la réponse avec `@Generable`
+
+```swift
+@Generable(description: "Un livre recommandé")
+struct Book: Identifiable {
+    let id = UUID()
+
+    @Guide(description: "Le titre du livre")
+    var title: String = ""
+
+    @Guide(description: "L'auteur du livre")
+    var author: String = ""
+}
+```
+
+- **`@Generable`** indique au modèle qu'il peut générer des instances de ce type
+- **`@Guide`** oriente la génération de chaque propriété
+- Les descriptions sont optionnelles mais recommandées
+
+### 2. Passer le type au modèle
+
+```swift
+let session = LanguageModelSession()
+let structuredResponse = try await session.respond(
+    to: "Recommande 3 livres de science-fiction",
+    generating: [Book].self  // Tableau de Book
+)
+```
+
+Le paramètre `generating` accepte n'importe quel type `@Generable`, y compris les tableaux.
+
+### 3. Utiliser la réponse structurée
+
+```swift
+struct BookListView: View {
+    @State private var books: [Book] = []
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Button("Générer des recommandations") {
+                let session = LanguageModelSession()
+                Task {
+                    let response = try await session.respond(
+                        to: "Recommande 3 livres de science-fiction",
+                        generating: [Book].self
+                    )
+                    books = response.content
+                }
+            }
+            .buttonStyle(.borderedProminent)
+
+            ScrollView {
+                ForEach(books) { book in
+                    VStack(alignment: .leading) {
+                        Text(book.title)
+                            .font(.headline)
+                        Text(book.author)
+                            .font(.body)
+                            .italic()
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding()
+                    .background(Color.blue.opacity(0.1), in: .rect(cornerRadius: 8))
+                }
+            }
+        }
+        .padding()
+    }
+}
+```
+
+---
+
+## Types simples supportés
+
+Au-delà des structs, le modèle peut générer des types Swift simples :
+
+```swift
+// Bool
+let boolResponse = try await session.respond(
+    to: "Swift est-il un langage de programmation ?",
+    generating: Bool.self
+)
+// boolResponse.content → true
+
+// Int
+let intResponse = try await session.respond(
+    to: "Combien de jours dans une semaine ?",
+    generating: Int.self
+)
+// intResponse.content → 7
+```
+
+Types supportés : `Bool`, `Int`, `Float`, `Double`, `Decimal`, `Array`.
+
+---
+
+## Guide descriptions avec exemples
+
+Des descriptions riches aident le modèle à produire de meilleurs résultats :
+
+```swift
+@Generable(description: "Une idée de destination de voyage avec détails")
+struct TravelIdea {
+    @Guide(description: "Une ville ou région avec son pays, comme 'Kyoto, Japon'")
+    var destination: String
+
+    @Guide(description: "Le nombre de jours recommandé (entre 2 et 14)")
+    var duration: Int
+
+    @Guide(description: "La meilleure saison pour visiter (Printemps, Été, Automne ou Hiver)")
+    var bestSeason: String
+
+    @Guide(description: "Le niveau de coût typique (Budget, Modéré ou Luxe)")
+    var budgetLevel: String
+
+    @Guide(description: "Une liste de 3-5 attractions incontournables")
+    var highlights: [String]
+}
+```
+
+---
+
+## Contraintes avec Generation Guides
+
+Le `@Guide` permet de poser des **contraintes strictes** sur les valeurs générées :
+
+```swift
+@Generable
+struct Recipe {
+    @Guide(description: "Le nom de la recette")
+    var name: String
+
+    @Guide(description: "Le niveau de difficulté",
+           .anyOf(["Facile", "Moyen", "Difficile"]))
+    var difficulty: String
+
+    @Guide(description: "Le temps de cuisson en minutes",
+           .range(10...120))
+    var cookTimeMinutes: Int
+
+    @Guide(description: "Le nombre de portions",
+           .range(1...12))
+    var servings: Int
+
+    @Guide(description: "Liste des ingrédients nécessaires",
+           .count(4...10))
+    var ingredients: [String]
+
+    @Guide(description: "Tags décrivant la cuisine",
+           .element(.anyOf(["Français", "Italien", "Mexicain",
+                            "Asiatique", "Méditerranéen", "Fusion"])))
+    var tags: [String]
+
+    @Guide(description: "Instructions étape par étape",
+           .minimumCount(3))
+    var instructions: [String]
+}
+```
+
+### Référence des contraintes
+
+| Contrainte | Description | Exemple |
+|-----------|-------------|---------|
+| `.anyOf([...])` | La valeur doit être l'une des options | `.anyOf(["Facile", "Moyen"])` |
+| `.constant(...)` | Valeur fixe | `.constant("FR")` |
+| `.range(...)` | Nombre dans un intervalle | `.range(1...100)` |
+| `.count(...)` | Nombre d'éléments du tableau | `.count(3...5)` |
+| `.minimumCount(n)` | Minimum d'éléments | `.minimumCount(3)` |
+| `.maximumCount(n)` | Maximum d'éléments | `.maximumCount(10)` |
+| `.minimum(n)` | Valeur numérique minimum | `.minimum(0)` |
+| `.maximum(n)` | Valeur numérique maximum | `.maximum(100)` |
+| `.element(...)` | Contrainte sur chaque élément du tableau | `.element(.anyOf([...]))` |
+| `.pattern(...)` | Regex pour les strings | `.pattern(/^[A-Z]/)` |
+
+---
+
+## Utiliser des Enums avec @Generable
+
+Pour un contrôle encore plus strict, utilisez des enums Swift :
+
+```swift
+@Generable
+enum Difficulty: String {
+    case easy = "Facile"
+    case medium = "Moyen"
+    case hard = "Difficile"
+}
+
+@Generable
+struct Recipe {
+    var name: String
+    var difficulty: Difficulty  // Le modèle ne peut générer que des valeurs valides
+    var cookTime: Int
+}
+```
+
+---
+
+## Bonnes pratiques
+
+<Info>
+La Guided Generation est le **super-pouvoir** de FoundationModels. Les modèles cloud nécessitent de parser du JSON ou du texte brut. Ici, vous obtenez directement des objets Swift typés.
+</Info>
+
+- Les `@Guide` descriptions sont optionnelles — sans elles, le modèle infère le guide depuis les noms de propriétés
+- Ajoutez des **exemples** dans les descriptions pour de meilleurs résultats
+- Utilisez des **enums** plutôt que `.anyOf` quand les valeurs possibles sont connues à la compilation
+- Le type generable est associé au **prompt**, pas à la session — vous pouvez changer de type d'un appel à l'autre
+- Combinez Guided Generation avec des Instructions pour un contrôle maximal
+
+---
+
+<Card title="Prochaine étape : Tools" icon="wrench" href="/mlx/foundation-models/tools">
+  Étendre les capacités du modèle avec des Tools →
+</Card>

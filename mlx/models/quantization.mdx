@@ -1,0 +1,217 @@
+---
+title: "Quantification des modèles"
+description: "Convertir et quantifier des modèles pour MLX : 4-bit, 8-bit, et optimisation mémoire"
+icon: "compress"
+---
+
+# Quantification des Modèles
+
+La quantification réduit la taille d'un modèle en utilisant moins de bits pour représenter chaque poids. Un modèle 7B en 16-bit occupe ~14 GB de RAM, mais seulement ~4 GB en 4-bit — rendant possible l'inférence sur un MacBook Air avec 8 GB de RAM.
+
+---
+
+## Pourquoi quantifier ?
+
+| Précision | RAM pour 7B | RAM pour 70B | Qualité | Cas d'usage |
+|-----------|-------------|-------------|---------|-------------|
+| **16-bit** (FP16) | ~14 GB | ~140 GB | Référence | Recherche, évaluation |
+| **8-bit** (INT8) | ~7 GB | ~70 GB | ~99% du 16-bit | Bon compromis |
+| **4-bit** (INT4) | ~4 GB | ~40 GB | ~95-97% du 16-bit | Production sur Mac |
+| **3-bit** | ~3 GB | ~30 GB | Dégradation notable | Modèles très gros |
+
+<Info>
+La quantification 4-bit est le standard pour la communauté MLX. La perte de qualité est minime pour la plupart des tâches, et le gain en mémoire est considérable.
+</Info>
+
+---
+
+## Convertir un modèle avec mlx-lm
+
+### Installation
+
+```bash
+pip install mlx-lm
+```
+
+### Conversion simple (Hugging Face → MLX 4-bit)
+
+```bash
+mlx_lm.convert \
+  --hf-path mistralai/Mistral-7B-Instruct-v0.3 \
+  -q \
+  --q-bits 4 \
+  --upload-repo votre-username/Mistral-7B-Instruct-v0.3-4bit-mlx
+```
+
+### Paramètres de conversion
+
+| Paramètre | Description | Défaut |
+|-----------|-------------|--------|
+| `--hf-path` | Modèle source sur Hugging Face | (requis) |
+| `-q` | Activer la quantification | Non |
+| `--q-bits` | Nombre de bits (3, 4, 6, 8) | 4 |
+| `--q-group-size` | Taille du groupe de quantification | 64 |
+| `--mlx-path` | Dossier de sortie local | `mlx_model` |
+| `--upload-repo` | Publier directement sur Hugging Face | — |
+| `--dtype` | Type de données (float16, bfloat16) | float16 |
+
+### Conversion locale (sans upload)
+
+```bash
+mlx_lm.convert \
+  --hf-path meta-llama/Llama-3.1-8B-Instruct \
+  -q \
+  --q-bits 4 \
+  --mlx-path ./models/llama-3.1-8b-4bit
+```
+
+### Utiliser le modèle converti
+
+```bash
+# Depuis le dossier local
+mlx_lm.generate \
+  --model ./models/llama-3.1-8b-4bit \
+  --prompt "Bonjour, comment ça va ?"
+```
+
+```python
+from mlx_lm import load, generate
+
+model, tokenizer = load("./models/llama-3.1-8b-4bit")
+response = generate(model, tokenizer, prompt="Bonjour !", max_tokens=100)
+```
+
+---
+
+## Conversion via l'API Python
+
+Pour un contrôle plus fin ou une intégration dans un pipeline :
+
+```python
+from mlx_lm import convert
+
+convert(
+    hf_path="mistralai/Mistral-7B-Instruct-v0.3",
+    mlx_path="./my-model-4bit",
+    quantize=True,
+    q_bits=4,
+    q_group_size=64,
+)
+```
+
+---
+
+## Choisir le bon niveau de quantification
+
+### 4-bit (recommandé)
+
+Le meilleur compromis taille/qualité. C'est le standard de la communauté MLX Community sur Hugging Face.
+
+```bash
+mlx_lm.convert --hf-path ... -q --q-bits 4
+```
+
+### 8-bit (qualité maximale)
+
+Proche du modèle original, mais consomme deux fois plus de RAM que le 4-bit.
+
+```bash
+mlx_lm.convert --hf-path ... -q --q-bits 8
+```
+
+### 3-bit (mémoire minimale)
+
+Utile uniquement pour faire tourner de très gros modèles (70B+) sur des machines avec RAM limitée.
+
+```bash
+mlx_lm.convert --hf-path ... -q --q-bits 3
+```
+
+---
+
+## Group size : le réglage fin
+
+Le `q-group-size` contrôle la granularité de la quantification. Un groupe plus petit = meilleure qualité mais fichier légèrement plus gros.
+
+| Group size | Qualité | Taille fichier |
+|-----------|---------|---------------|
+| 32 | Meilleure | Plus gros |
+| 64 | Bon compromis (défaut) | Standard |
+| 128 | Légèrement moindre | Plus compact |
+
+```bash
+# Qualité maximale en 4-bit
+mlx_lm.convert --hf-path ... -q --q-bits 4 --q-group-size 32
+```
+
+---
+
+## Formats de modèles : GGUF vs MLX vs SafeTensors
+
+| Format | Framework | Avantages |
+|--------|-----------|-----------|
+| **MLX (SafeTensors)** | MLX, mlx-lm | Natif Apple Silicon, performances optimales |
+| **GGUF** | llama.cpp, Ollama | Universel, fonctionne partout |
+| **CoreML (.mlpackage)** | CoreML, iOS | Neural Engine, apps iOS |
+| **SafeTensors (HF)** | PyTorch, Transformers | Format source, non quantifié |
+
+<Warning>
+MLX ne lit pas les fichiers GGUF. Si vous trouvez un modèle au format GGUF sur Hugging Face, cherchez plutôt la version MLX sur [mlx-community](https://huggingface.co/mlx-community), ou convertissez le modèle source (non-GGUF) avec `mlx_lm.convert`.
+</Warning>
+
+---
+
+## Vérifier la qualité après quantification
+
+Comparez les sorties avant et après quantification :
+
+```python
+from mlx_lm import load, generate
+
+# Modèle original
+model_fp16, tok = load("mistralai/Mistral-7B-Instruct-v0.3")
+# Modèle quantifié
+model_4bit, tok = load("mlx-community/Mistral-7B-Instruct-v0.3-4bit")
+
+prompt = "Explique la relativité générale en termes simples."
+
+print("=== FP16 ===")
+print(generate(model_fp16, tok, prompt=prompt, max_tokens=200))
+
+print("\n=== 4-bit ===")
+print(generate(model_4bit, tok, prompt=prompt, max_tokens=200))
+```
+
+Pour la plupart des tâches (chat, résumé, extraction), la différence est imperceptible en 4-bit.
+
+---
+
+## Publier sur Hugging Face
+
+Partagez vos conversions avec la communauté :
+
+```bash
+# Login Hugging Face
+huggingface-cli login
+
+# Convertir et publier en une commande
+mlx_lm.convert \
+  --hf-path mistralai/Mistral-7B-Instruct-v0.3 \
+  -q --q-bits 4 \
+  --upload-repo votre-username/Mistral-7B-v0.3-4bit-mlx
+```
+
+<Info>
+La communauté [mlx-community](https://huggingface.co/mlx-community) sur Hugging Face propose déjà des milliers de modèles pré-quantifiés. Vérifiez si le modèle que vous voulez n'existe pas déjà avant de le convertir vous-même.
+</Info>
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Modèles MLX Community" icon="database" href="/mlx/models/mlx-community">
+    Modèles prêts à l'emploi sur Hugging Face →
+  </Card>
+  <Card title="Fine-tuning LoRA" icon="sliders" href="/mlx/fine-tuning/lora-guide">
+    Fine-tuner après quantification →
+  </Card>
+</CardGroup>

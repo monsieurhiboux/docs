@@ -1,0 +1,256 @@
+---
+title: "Prompts & PromptBuilder"
+description: "Construire des prompts efficaces pour le LanguageModelSession avec le PromptBuilder"
+icon: "pen-fancy"
+---
+
+# Prompts & PromptBuilder
+
+Le **Prompt** est le point d'entrée pour interagir avec le `LanguageModelSession`. Apple fournit un `PromptBuilder` flexible qui permet de composer des prompts de manière déclarative.
+
+---
+
+## Votre première conversation
+
+### Réponse complète (All-at-Once)
+
+La façon la plus simple d'obtenir une réponse :
+
+```swift
+struct FirstConversation: View {
+    @State private var prompt = "Écris un poème sur un chat."
+    @State private var response = ""
+
+    var body: some View {
+        VStack {
+            Text(prompt)
+
+            Button("Créer le poème") {
+                let session = LanguageModelSession()
+                Task {
+                    response = try await session.respond(to: prompt).content
+                }
+            }
+            .buttonStyle(.borderedProminent)
+
+            ScrollView {
+                Text(response)
+                    .padding()
+            }
+        }
+        .font(.title)
+    }
+}
+```
+
+Le `LanguageModelSession` est l'objet central : il comprend le langage naturel et répond en langage naturel.
+
+### Réponse en streaming
+
+Pour afficher la réponse au fur et à mesure qu'elle est générée :
+
+```swift
+struct StreamingConversation: View {
+    @State private var response = ""
+
+    var body: some View {
+        VStack {
+            Button("Créer le poème") {
+                let session = LanguageModelSession()
+                response = ""
+                Task {
+                    for try await partial in session.streamResponse(to: "Écris un poème sur un chat.") {
+                        response = partial.content
+                    }
+                }
+            }
+            .buttonStyle(.borderedProminent)
+
+            Text(response)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .padding()
+        }
+        .font(.title)
+    }
+}
+```
+
+<Info>
+Le `streamResponse` utilise une boucle `for try await` de Swift Concurrency. Chaque `partialResponse.content` contient la réponse **complète jusqu'à ce point** (pas juste le dernier morceau). La réponse grossit à chaque itération.
+</Info>
+
+---
+
+## Deux modes de réponse
+
+| Mode | Quand l'utiliser |
+|------|-----------------|
+| **All-at-Once** (`respond`) | Quand la réponse complète est nécessaire pour la logique, prompts courts, tâches en arrière-plan |
+| **Streaming** (`streamResponse`) | Quand vous voulez afficher le contenu progressivement, réponses longues, UX conversationnelle |
+
+---
+
+## Construire un Prompt avec PromptBuilder
+
+### String simple
+
+Pas besoin de créer un objet `Prompt` — passez directement une string :
+
+```swift
+let session = LanguageModelSession()
+response = try await session.respond(to: "Écris un haiku sur le code").content
+```
+
+### Objet Prompt
+
+Pour plus de contrôle, créez un objet `Prompt` :
+
+```swift
+let prompt = Prompt("Raconte-moi une blague courte")
+let session = LanguageModelSession()
+response = try await session.respond(to: prompt).content
+```
+
+### Le PromptBuilder — composition déclarative
+
+Le vrai pouvoir vient du **PromptBuilder**, qui permet de combiner des éléments de manière déclarative :
+
+```swift
+@State private var selectedType = "Dessert"
+
+// ...
+
+let prompt = Prompt {
+    "J'ai besoin d'une recette en 3 étapes."
+    "Fais-en une pour un \(selectedType.lowercased())."
+    "Garde-la simple pour les débutants."
+}
+
+let session = LanguageModelSession()
+response = try await session.respond(to: prompt).content
+```
+
+<Info>
+Le PromptBuilder assemble automatiquement toutes les parties. Pas besoin de gérer les espaces entre les lignes — le modèle s'en occupe.
+</Info>
+
+---
+
+## Flexibilité du PromptBuilder
+
+### Variables directes
+
+Pas besoin d'interpolation de string — ajoutez la variable sur sa propre ligne :
+
+```swift
+let prompt = Prompt {
+    "J'ai besoin d'une recette en 3 étapes."
+    "Fais-en une pour un"
+    selectedType  // Variable directe, sans interpolation
+    "Garde-la simple pour les débutants."
+}
+```
+
+### Tableaux
+
+Le PromptBuilder sait gérer les tableaux nativement :
+
+```swift
+@State private var ingredients = ["farine", "sucre", "œufs", "beurre"]
+
+let prompt = Prompt {
+    "Crée une recette avec ces ingrédients :"
+    ingredients  // Le builder gère l'array automatiquement
+    "La recette doit être rapide et facile."
+}
+```
+
+### Conditions (if/else)
+
+Adaptez dynamiquement le prompt selon l'état de l'UI :
+
+```swift
+@State private var isExpert = false
+
+let prompt = Prompt {
+    "J'ai besoin d'aide avec les variables Swift."
+
+    if isExpert {
+        "Fournis une explication avancée avec des exemples de code."
+        "Inclus des considérations de performance."
+    } else {
+        "Explique en termes simples pour un débutant."
+        "Utilise des analogies pour faciliter la compréhension."
+    }
+}
+```
+
+### Boucles (for…in)
+
+Itérez sur des collections dans le prompt :
+
+```swift
+let topics = ["sécurité", "performance", "architecture"]
+
+let prompt = Prompt {
+    "Donne des conseils pour une app SwiftUI sur ces sujets :"
+    for topic in topics {
+        "- \(topic)"
+    }
+}
+```
+
+### Composition de Prompts
+
+Combinez des sous-prompts :
+
+```swift
+let contextPrompt = Prompt {
+    "L'utilisateur travaille sur une app de méditation."
+    "Il cible les professionnels occupés."
+}
+
+let questionPrompt = Prompt {
+    contextPrompt  // Inclure un autre Prompt
+    "Suggère 5 noms d'app créatifs."
+}
+```
+
+---
+
+## Tokens et limites
+
+Les modèles IA travaillent avec des **tokens** (mots ou parties de mots). Le `LanguageModelSession` a une fenêtre de contexte d'environ **4 096 tokens** (~3 000 mots).
+
+Cette fenêtre inclut :
+- Vos **instructions** (envoyées avec chaque prompt)
+- Le **prompt** actuel
+- L'**historique** de la conversation
+- La **réponse** générée
+
+### Les conversations sont cumulatives
+
+```
+┌────────────────────────────────────┐
+│         Fenêtre de contexte        │
+│           4 096 tokens             │
+├────────────────────────────────────┤
+│  Conversation précédente  557 tok  │
+│  Instructions              68 tok  │
+│  Nouveau prompt            10 tok  │
+│  Nouvelle réponse         455 tok  │
+│  ──────────────────────────────    │
+│  Total: 1 090 tokens               │
+│  Restant: 3 006 tokens             │
+└────────────────────────────────────┘
+```
+
+<Warning>
+Quand la limite de 4 096 tokens est atteinte, le `LanguageModelSession` lance une exception. Créez un nouveau `LanguageModelSession` pour réinitialiser le compteur.
+</Warning>
+
+---
+
+<Card title="Prochaine étape : Instructions" icon="list-check" href="/mlx/foundation-models/instructions">
+  Donner une personnalité et des règles au modèle →
+</Card>

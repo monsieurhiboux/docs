@@ -1,0 +1,346 @@
+---
+title: "Patterns d'architecture"
+description: "Architectures recommandées pour intégrer l'IA on-device dans vos apps iOS et macOS"
+icon: "sitemap"
+---
+
+# Patterns d'Architecture
+
+Intégrer l'IA on-device dans une app nécessite une architecture pensée pour les contraintes du modèle : contexte limité, latence variable, erreurs possibles. Cette page présente les patterns éprouvés pour iOS et macOS.
+
+---
+
+## Pattern 1 : ViewModel dédié par feature
+
+Chaque feature IA a son propre ViewModel avec sa propre session :
+
+```swift
+import FoundationModels
+import SwiftUI
+
+@Observable
+class RecipeSuggestionViewModel {
+    var suggestions: [Recipe] = []
+    var isLoading = false
+    var errorMessage: String?
+
+    private var session: LanguageModelSession?
+
+    func generateSuggestions(ingredients: [String]) async {
+        // Nouvelle session à chaque requête = contexte propre
+        let session = LanguageModelSession(
+            instructions: """
+            Tu es un chef cuisinier créatif.
+            Propose des recettes simples et rapides.
+            Chaque recette doit utiliser les ingrédients fournis.
+            """
+        )
+        self.session = session
+        isLoading = true
+        errorMessage = nil
+
+        do {
+            let prompt = Prompt {
+                "Propose 3 recettes avec ces ingrédients :"
+                ingredients
+                "Format simple, adaptées à des débutants."
+            }
+
+            let result = try await session.respond(
+                to: prompt,
+                generating: [Recipe].self
+            )
+            suggestions = result.content
+        } catch {
+            errorMessage = "Impossible de générer des recettes."
+        }
+
+        isLoading = false
+    }
+}
+
+@Generable
+struct Recipe: Identifiable {
+    let id = UUID()
+    @Guide(description: "Nom de la recette")
+    var name: String = ""
+    @Guide(description: "Temps de préparation en minutes", .range(5...120))
+    var prepTime: Int = 0
+    @Guide(description: "Les étapes de préparation", .minimumCount(2))
+    var steps: [String] = []
+}
+```
+
+```swift
+struct RecipeView: View {
+    @State private var viewModel = RecipeSuggestionViewModel()
+    @State private var ingredients = ["tomates", "mozzarella", "basilic"]
+
+    var body: some View {
+        VStack {
+            Button("Générer des recettes") {
+                Task {
+                    await viewModel.generateSuggestions(ingredients: ingredients)
+                }
+            }
+            .disabled(viewModel.isLoading)
+
+            if let error = viewModel.errorMessage {
+                Text(error).foregroundStyle(.red)
+            }
+
+            ForEach(viewModel.suggestions) { recipe in
+                RecipeCard(recipe: recipe)
+            }
+        }
+    }
+}
+```
+
+---
+
+## Pattern 2 : Architecture hybride On-Device + Cloud
+
+Le modèle on-device excelle pour le traitement de texte et la structuration. Pour les tâches complexes, combinez-le avec un LLM cloud via un **Tool** :
+
+```
+┌─────────────────────────────────────────────────┐
+│                    Utilisateur                   │
+│                  "Résume cet article"            │
+└────────────────────┬────────────────────────────┘
+                     │
+                     ▼
+┌─────────────────────────────────────────────────┐
+│            FoundationModels (on-device)          │
+│                                                  │
+│   ┌──────────┐    ┌────────────────────────┐    │
+│   │ Rapide   │    │ Structuration :        │    │
+│   │ Privé    │    │ @Generable pour        │    │
+│   │ Gratuit  │    │ formater la sortie     │    │
+│   └──────────┘    └────────────────────────┘    │
+│                                                  │
+│   Tâche complexe ? → Utilise un Tool             │
+│                         │                        │
+└─────────────────────────┼────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────┐
+│              CloudLLMTool (Tool)                  │
+│                                                  │
+│   Appel API vers Claude, GPT, Gemini...          │
+│   → Raisonnement complexe                        │
+│   → Grande base de connaissances                 │
+│   → Résultat retourné au FoundationModel         │
+│     qui le structure via @Generable              │
+└─────────────────────────────────────────────────┘
+```
+
+```swift
+struct CloudLLMTool: Tool {
+    let name = "askCloudAI"
+    let description = "Pose une question complexe à un LLM cloud pour du raisonnement avancé"
+
+    @Generable
+    struct Arguments {
+        @Guide(description: "La question ou tâche complexe")
+        let query: String
+    }
+
+    func call(arguments: Arguments) async throws -> String {
+        // Appel à votre API cloud (Claude, OpenAI, etc.)
+        let url = URL(string: "https://api.votrebackend.com/llm")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.httpBody = try JSONEncoder().encode(["query": arguments.query])
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let (data, _) = try await URLSession.shared.data(for: request)
+        return String(data: data, encoding: .utf8) ?? ""
+    }
+}
+
+// Utilisation
+let session = LanguageModelSession(
+    tools: [CloudLLMTool()],
+    instructions: """
+    Utilise le modèle cloud pour les questions de raisonnement
+    complexe, de mathématiques avancées ou nécessitant des
+    connaissances récentes. Pour le reste, réponds directement.
+    """
+)
+```
+
+---
+
+## Pattern 3 : Session par conversation
+
+Pour un chat multi-tours, conservez la session tant que la conversation est active :
+
+```swift
+@Observable
+class ChatManager {
+    private(set) var session: LanguageModelSession
+    private(set) var messages: [(role: String, text: String)] = []
+    var isGenerating = false
+
+    init(instructions: String = "") {
+        session = LanguageModelSession(
+            instructions: instructions
+        )
+    }
+
+    func send(_ text: String) async throws -> String {
+        isGenerating = true
+        defer { isGenerating = false }
+
+        messages.append((role: "user", text: text))
+
+        do {
+            let response = try await session.respond(to: text).content
+            messages.append((role: "ai", text: response))
+            return response
+
+        } catch let error as LanguageModelSession.GenerationError {
+            if case .exceededContextWindowSize = error {
+                // Contexte plein → nouvelle session
+                resetSession()
+                messages.append((
+                    role: "system",
+                    text: "Session réinitialisée (limite de conversation atteinte)."
+                ))
+            }
+            throw error
+        }
+    }
+
+    func resetSession() {
+        session = LanguageModelSession(
+            instructions: "Tu es un assistant helpful."
+        )
+        messages.removeAll()
+    }
+}
+```
+
+---
+
+## Pattern 4 : Feature Flags pour l'IA
+
+Pas tous les appareils supportent FoundationModels. Encapsulez la disponibilité :
+
+```swift
+enum AICapability {
+    case available
+    case notEligible
+    case notEnabled
+    case downloading
+    case unavailable(String)
+
+    static var current: AICapability {
+        switch SystemLanguageModel.default.availability {
+        case .available:
+            return .available
+        case .unavailable(.deviceNotEligible):
+            return .notEligible
+        case .unavailable(.appleIntelligenceNotEnabled):
+            return .notEnabled
+        case .unavailable(.modelNotReady):
+            return .downloading
+        case .unavailable(let reason):
+            return .unavailable("\(reason)")
+        }
+    }
+
+    var isAvailable: Bool {
+        if case .available = self { return true }
+        return false
+    }
+}
+
+// Usage dans les vues
+struct SmartFeature: View {
+    var body: some View {
+        Group {
+            if AICapability.current.isAvailable {
+                AIEnhancedView()
+            } else {
+                FallbackView(capability: AICapability.current)
+            }
+        }
+    }
+}
+
+struct FallbackView: View {
+    let capability: AICapability
+
+    var body: some View {
+        ContentUnavailableView {
+            Label("Fonctionnalité IA", systemImage: "apple.intelligence")
+        } description: {
+            switch capability {
+            case .notEligible:
+                Text("Votre appareil ne supporte pas Apple Intelligence.")
+            case .notEnabled:
+                Text("Activez Apple Intelligence dans Réglages.")
+            case .downloading:
+                Text("Le modèle IA est en cours de téléchargement...")
+            case .unavailable(let reason):
+                Text("IA indisponible : \(reason)")
+            case .available:
+                EmptyView()
+            }
+        }
+    }
+}
+```
+
+---
+
+## Résumé : quand utiliser quoi
+
+| Besoin | Pattern | Pourquoi |
+|--------|---------|----------|
+| Feature IA ponctuelle (résumé, génération) | **ViewModel dédié** + nouvelle session à chaque appel | Contexte propre, pas de pollution |
+| Chat multi-tours | **Session conservée** avec reset automatique | Continuité de la conversation |
+| Tâche complexe + structuration | **Architecture hybride** (Cloud Tool + @Generable) | Meilleur des deux mondes |
+| App mixte (appareils anciens + nouveaux) | **Feature Flags** avec fallback UI | Expérience dégradée gracieuse |
+| Données temps réel | **Tools** (calendrier, météo, DB) | Le modèle n'a pas de données live |
+
+---
+
+## Checklist avant de livrer
+
+<Steps>
+  <Step title="Vérifier la disponibilité du modèle">
+    `SystemLanguageModel.default.isAvailable` au lancement et avant chaque feature IA
+  </Step>
+  <Step title="Gérer toutes les erreurs">
+    `GenerationError`, `ToolCallError`, et les erreurs inattendues
+  </Step>
+  <Step title="Optimiser le prewarming">
+    `session.prewarm()` sur les vues qui utilisent l'IA
+  </Step>
+  <Step title="Tester les guardrails">
+    Envoyer des prompts limites et vérifier la gestion
+  </Step>
+  <Step title="Prévoir un fallback">
+    UI alternative pour les appareils non compatibles
+  </Step>
+  <Step title="Garder les instructions concises">
+    Elles consomment des tokens à chaque prompt
+  </Step>
+  <Step title="Tester sur appareil physique">
+    Le simulateur peut ne pas refléter les performances réelles
+  </Step>
+</Steps>
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Introduction" icon="house" href="/mlx/foundation-models/introduction">
+    Retour à la vue d'ensemble →
+  </Card>
+  <Card title="Intégration Swift existante" icon="swift" href="/mlx/local-llms/swift-integration">
+    MLX Swift, CoreML et autres options →
+  </Card>
+</CardGroup>

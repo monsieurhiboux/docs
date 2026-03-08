@@ -1,0 +1,126 @@
+---
+title: "Apple Foundation Models"
+description: "Le framework on-device d'Apple pour intégrer l'IA directement dans vos apps SwiftUI"
+icon: "apple"
+---
+
+# Apple Foundation Models
+
+<Note>
+Disponible à partir d'iOS 26 / macOS 26 / iPadOS 26 — nécessite Apple Intelligence activé sur l'appareil.
+</Note>
+
+## Qu'est-ce que le framework FoundationModels ?
+
+Apple a créé un LLM entraîné pour fonctionner **directement sur l'appareil de l'utilisateur**, enveloppé dans un framework Swift natif appelé `FoundationModels`. Contrairement aux services cloud comme ChatGPT, Claude ou Gemini, tout le traitement reste local.
+
+Le framework repose sur trois concepts simples :
+
+```
+┌──────────┐     ┌──────────┐     ┌──────────┐
+│  Prompt  │ ──▶ │  Model   │ ──▶ │ Response │
+│    📝    │     │    🧠    │     │    💬    │
+└──────────┘     └──────────┘     └──────────┘
+```
+
+1. **Prompt** — Le texte que vous envoyez au modèle
+2. **Model** — Le `LanguageModelSession` qui traite votre prompt
+3. **Response** — La réponse générée par le modèle
+
+---
+
+## Pourquoi utiliser FoundationModels ?
+
+<CardGroup cols={2}>
+  <Card title="🔒 Privé" icon="lock">
+    Tout reste sur l'appareil. Aucune donnée ne quitte le device.
+  </Card>
+  <Card title="⚡ Rapide" icon="bolt">
+    Inférence locale sans latence réseau.
+  </Card>
+  <Card title="💸 Gratuit" icon="coins">
+    Pas d'API key, pas de coûts par token.
+  </Card>
+  <Card title="📴 Hors-ligne" icon="wifi-slash">
+    Fonctionne sans connexion internet.
+  </Card>
+</CardGroup>
+
+---
+
+## Ce que FoundationModels peut faire
+
+<AccordionGroup>
+  <Accordion title="Génération de texte & contenu" icon="pen-fancy">
+    Résumés, emails, réponses intelligentes, brainstorming, contenu pour réseaux sociaux, rédaction assistée, expansion de notes en paragraphes détaillés.
+  </Accordion>
+
+  <Accordion title="Extraction de données structurées" icon="database">
+    Auto-complétion de formulaires, catégorisation de dépenses, extraction de tâches depuis des notes de réunion, suggestion de tags pour documents.
+  </Accordion>
+
+  <Accordion title="IA conversationnelle" icon="comments">
+    Apprentissage interactif, dialogues dynamiques pour jeux, support utilisateur, guide pas-à-pas.
+  </Accordion>
+
+  <Accordion title="Outils créatifs" icon="wand-magic-sparkles">
+    Changement de ton, correction orthographique, clarification de texte, extraction de mots-clés, génération d'hypothèses.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Ce que FoundationModels ne peut PAS faire
+
+| Limitation | Alternative Apple |
+|-----------|-------------------|
+| Génération d'images | `ImageCreator` Framework |
+| Analyse d'images/vidéos | `Vision` Framework |
+| Reconnaissance vocale | `Speech` Framework |
+| Synthèse vocale (text-to-speech) | `AVFoundation` |
+
+---
+
+## FoundationModels vs Modèles Cloud
+
+| | FoundationModels | Modèles Cloud (GPT, Claude…) |
+|---|---|---|
+| **Vitesse** | Rapide | Latence réseau |
+| **Coût** | Gratuit | Payant par token |
+| **Vie privée** | 100% on-device | Données envoyées au serveur |
+| **Disponibilité** | Sans connexion | Nécessite internet |
+| **Raisonnement complexe** | Limité | Excellent |
+| **Contexte** | ~4 096 tokens (~3 000 mots) | Jusqu'à 200k+ tokens |
+| **Base de connaissances** | Limitée | Très étendue |
+| **Réponses Swift natives** | ✅ Objets Swift via `@Generable` | ❌ Parsing JSON requis |
+
+<Warning>
+Ne traitez pas FoundationModels comme un modèle cloud. La fenêtre de contexte est de **~4 096 tokens**. Il excelle pour les tâches de texte et la génération de réponses structurées en objets Swift natifs, pas pour le raisonnement complexe.
+</Warning>
+
+---
+
+## Architecture hybride possible
+
+FoundationModels peut servir de "pont" entre un LLM cloud et votre app, en combinant le meilleur des deux :
+
+```
+┌──────────┐     ┌──────────────────┐     ┌──────────┐
+│  Prompt  │ ──▶ │  Foundation      │ ──▶ │ Response │
+│          │     │  Model           │     │ (Swift   │
+│          │     │                  │     │  object) │
+│          │     │   ┌──────────┐   │     │          │
+│          │     │   │  Tool    │   │     │          │
+│          │     │   │ (API LLM │   │     │          │
+│          │     │   │  cloud)  │   │     │          │
+│          │     │   └──────────┘   │     │          │
+└──────────┘     └──────────────────┘     └──────────┘
+```
+
+Le modèle on-device excelle dans le parsing et la conversion des réponses en objets Swift. Le Tool peut interroger un LLM cloud quand une tâche dépasse les capacités locales.
+
+---
+
+<Card title="Prochaine étape : Disponibilité du modèle" icon="circle-check" href="/mlx/foundation-models/availability">
+  Vérifier si le modèle est disponible sur l'appareil de l'utilisateur →
+</Card>
