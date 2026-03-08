@@ -146,5 +146,6 @@
       "cursor",
       "vscode"
     ]
-  }
+  },
+  "logo": "/images/full-logo.svg"
 }
