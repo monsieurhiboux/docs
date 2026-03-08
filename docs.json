@@ -150,11 +150,5 @@
       "cursor",
       "vscode"
     ]
-  },
-  "footer": {
-    "socials": {
-      "github": "https://github.com/ml-explore/mlx",
-      "x": "https://x.com/mintlify"
-    }
   }
 }
