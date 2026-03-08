@@ -229,12 +229,9 @@ struct MyApp: App {
 }
 ```
 
-Pourquoi c'est problématique :
+Pourquoi c'est une mauvaise idée : le `LanguageModelSession` est conçu pour une conversation ciblée, pas pour servir d'entrepôt global. Une session partagée dans toute l'app accumule les tokens de toutes les vues — la fenêtre de 4 096 tokens se remplit rapidement avec des conversations sans lien les unes avec les autres, et les anciennes réponses colorent les nouvelles de façon involontaire.
 
-1. **Limite de tokens** — la fenêtre de contexte se remplit avec toutes les conversations de l'app
-2. **Pollution du contexte** — les conversations passées influencent les nouvelles réponses de manière imprévisible
-3. **Pas de flexibilité** — impossible de changer les instructions ou tools après création
-4. **Pas de concurrence** — le modèle ne peut traiter qu'un prompt à la fois ; un deuxième appel pendant le traitement lance une erreur `concurrentRequests`
+Autre contrainte importante : les instructions et les tools sont **fixés à la création**. Un `RecipeView` et un `TravelView` n'ont pas besoin des mêmes instructions ; les partager dans une session commune, c'est se priver de la capacité de personnaliser chaque feature. De plus, une même session ne peut traiter qu'un prompt à la fois — si deux vues l'utilisent simultanément, l'une d'elles recevra une erreur `concurrentRequests`.
 
 La bonne approche : **une session par feature ou par vue**.
 

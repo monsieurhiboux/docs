@@ -147,19 +147,25 @@ struct AIFeatureView: View {
 
 ---
 
-## Quand vérifier la disponibilité ?
+## Stratégie de vérification
 
-<CardGroup cols={3}>
-  <Card title="Au lancement" icon="power-off">
-    Détecte si l'appareil est compatible, si Apple Intelligence est activé, ou si le modèle n'est pas encore téléchargé.
-  </Card>
-  <Card title="À l'apparition de la vue" icon="eye">
-    Le modèle peut être devenu indisponible entre-temps si l'appareil a surchauffé.
-  </Card>
-  <Card title="Avant chaque appel" icon="rotate">
-    Si l'app fait beaucoup d'appels (chat continu), la charge peut chauffer l'appareil et rendre le modèle indisponible.
-  </Card>
-</CardGroup>
+La disponibilité n'est pas un état fixe — elle peut changer au cours de vie de l'app. Une bonne stratégie couvre trois moments clés :
+
+**Au lancement de l'app** — c'est le moment d'identifier les situations permanentes ou de longue durée : appareil incompatible, Apple Intelligence désactivé, modèle pas encore installé. Si le modèle est absent ici, il faut guider l'utilisateur vers les Réglages.
+
+**Quand la vue apparaît** — utile si votre feature IA est sur un écran spécifique. L'état peut avoir changé depuis le lancement (l'appareil a chauffé entre-temps, l'utilisateur a désactivé AI Intelligence depuis les Réglages).
+
+**À chaque appel** (pour les apps intensives) — si votre app fait des appels en continu (chat, traitement de données), vérifiez avant chaque requête. Un usage intensif peut rendre `modelNotReady` de façon temporaire et imprévisible.
+
+```swift
+// Vérification avant appel avec fallback UI
+guard SystemLanguageModel.default.isAvailable else {
+    showModelUnavailableUI()
+    return
+}
+let session = LanguageModelSession()
+// ... suite
+```
 
 ---
 
