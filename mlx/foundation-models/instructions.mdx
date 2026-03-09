@@ -47,15 +47,39 @@ Cette forme est pratique si vous composez les instructions à partir d'états co
 
 ## Instructions vs prompt
 
-| Élément | Sert à quoi ? |
-|---------|---------------|
-| Instructions | Définir le rôle, le ton et les règles globales |
-| Prompt | Poser la question du moment |
+| Question | Instructions | Prompt |
+|----------|--------------|--------|
+| Quand ça change | Quand le rôle, la feature ou le format stable change | À chaque requête |
+| Ce que vous y mettez | Le ton, les limites, le style, le format durable | La demande du moment et son contexte local |
+| Qui le contrôle | Votre code | Votre code et souvent l'action utilisateur |
 
 En général :
 
 - mettez les règles persistantes dans les instructions
 - mettez la demande concrète dans le prompt
+
+Si vous avez un doute, posez-vous cette question : "est-ce que cette consigne doit survivre à plusieurs requêtes ?" Si oui, elle a plus de chances d'appartenir aux instructions.
+
+---
+
+## Ce qui doit rester stable dans les instructions
+
+Mettez dans `Instructions` ce que votre feature veut répéter sans le redire à chaque appel :
+
+- le rôle du modèle
+- le niveau de détail attendu
+- le format général
+- les limites métier stables
+
+Exemple :
+
+```text
+You help intermediate Swift developers.
+Prefer short, concrete answers.
+Do not invent APIs.
+```
+
+Le prompt, lui, doit rester libre de décrire la tâche du moment.
 
 ---
 

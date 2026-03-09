@@ -74,7 +74,23 @@ final class AIViewModel {
 
 ## Guardrails : ce que ça implique pour l'UI
 
-Les guardrails sont intégrés au modèle. Vous ne les configurez pas librement.
+Les guardrails sont intégrés au modèle. Vous ne définissez pas vos propres règles, mais Apple expose tout de même des profils prêts à l'emploi.
+
+```swift
+import FoundationModels
+
+let defaultModel = SystemLanguageModel(
+    useCase: .general,
+    guardrails: .default
+)
+
+let transformationModel = SystemLanguageModel(
+    useCase: .general,
+    guardrails: .permissiveContentTransformations
+)
+```
+
+`.default` reste le choix normal. `.permissiveContentTransformations` vise surtout les cas où vous transformez un texte fourni par l'utilisateur, même si ce texte peut contenir du contenu sensible.
 
 Côté produit, cela signifie :
 
@@ -117,6 +133,11 @@ func runWithTools(session: LanguageModelSession) async {
     }
 }
 ```
+
+L'intérêt de `ToolCallError` est qu'il vous donne deux informations utiles :
+
+- `tool` pour savoir quelle capacité a échoué
+- `underlyingError` pour garder la vraie cause technique
 
 Si votre tool parle à une base locale ou à un backend, fournissez des erreurs métier lisibles avec `LocalizedError`.
 

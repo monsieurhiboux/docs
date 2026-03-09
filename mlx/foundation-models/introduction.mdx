@@ -5,7 +5,7 @@ icon: "apple"
 ---
 
 <Note>
-Foundation Models donne accès au modèle de langage système d'Apple via le module `FoundationModels`. Votre app n'embarque pas elle-même les poids du modèle. Vérifiez toujours la disponibilité au runtime.
+Foundation Models donne accès au modèle de langage système d'Apple via le module `FoundationModels`. Votre app n'embarque pas elle-même les poids du modèle. Vérifiez toujours la disponibilité au runtime. Les APIs citées ici sont documentées par Apple pour iOS 26.0, iPadOS 26.0, macOS 26.0, visionOS 26.0 et Mac Catalyst 26.0 ou plus.
 </Note>
 
 ## Ce que c'est, simplement
@@ -33,6 +33,20 @@ let response = try await session.respond(
 
 print(response.content)
 ```
+
+---
+
+## Ce que le framework couvre réellement
+
+Foundation Models n'est pas juste un `respond(to:)`. En pratique, vous assemblez plusieurs briques :
+
+- `SystemLanguageModel` représente le modèle système, sa disponibilité, ses langues prises en charge et sa taille de contexte.
+- `LanguageModelSession` porte le transcript, les instructions, les tools et l'état `isResponding`.
+- `@Generable` et `@Guide` servent à demander une sortie structurée plutôt qu'un bloc de texte.
+- `streamResponse(to:)` sert à afficher une réponse progressivement.
+- `Tool` permet au modèle d'aller chercher des données ou de déclencher des actions dans votre app.
+
+Vu comme ça, le framework ressemble moins à un chat prêt à l'emploi et plus à une boîte à outils Swift pour intégrer un modèle système.
 
 ---
 
@@ -70,6 +84,24 @@ Exemples de cas d'usage adaptés :
     Le modèle peut appeler votre code pour accéder à des données ou déclencher des actions.
   </Card>
 </CardGroup>
+
+---
+
+## Deux use cases Apple à connaître
+
+Apple documente aussi des **use cases** pour `SystemLanguageModel`. Deux cas sont particulièrement utiles à connaître :
+
+- `.general` pour les tâches de génération classiques : expliquer, résumer, reformuler, répondre ou utiliser des tools.
+- `.contentTagging` pour classer et organiser du contenu, plutôt que produire une réponse conversationnelle.
+
+```swift
+import FoundationModels
+
+let generalModel = SystemLanguageModel(useCase: .general)
+let taggingModel = SystemLanguageModel(useCase: .contentTagging)
+```
+
+Si votre feature consiste surtout à étiqueter, router ou classer du texte, pensez à ce second use case avant de construire un pseudo-chat.
 
 ---
 

@@ -116,6 +116,23 @@ La session maintient un transcript. Il peut être utile pour :
 
 Gardez en tête que plus le transcript grossit, plus la session devient coûteuse en contexte.
 
+Apple documente aussi `init(model:tools:transcript:)` pour **réhydrater** une session à partir d'un historique existant.
+
+```swift
+import FoundationModels
+
+let existingSession = LanguageModelSession()
+let savedTranscript = existingSession.transcript
+
+let restoredSession = LanguageModelSession(
+    model: SystemLanguageModel.default,
+    tools: [],
+    transcript: savedTranscript
+)
+```
+
+C'est utile si vous voulez reprendre une conversation, restaurer un brouillon ou déplacer l'état d'une feature entre plusieurs écrans.
+
 ---
 
 ## `isResponding`
@@ -142,11 +159,15 @@ let session = LanguageModelSession()
 session.prewarm()
 ```
 
+Apple documente `prewarm(promptPrefix:)` pour un cas plus précis : charger les ressources de la session tout en mettant en cache un début de prompt commun.
+
 Vous pouvez l'utiliser :
 
 - quand une vue IA va s'ouvrir
 - quand l'utilisateur se prépare à interagir
 - quand la feature fait partie du parcours principal
+
+Si votre feature répète toujours le même cadrage, ce préfixe commun peut réduire la latence du premier vrai appel.
 
 Ne prewarmez pas partout par défaut. Faites-le seulement pour les flows qui le justifient.
 

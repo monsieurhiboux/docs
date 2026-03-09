@@ -10,6 +10,30 @@ Cette approche rend l'intégration plus robuste et plus simple à maintenir.
 
 ---
 
+## Ce que décrivent `@Generable` et `@Guide`
+
+Apple expose `Generable` comme le contrat de sortie que le modèle doit remplir. `@Guide` n'est pas un simple commentaire : il influence les valeurs que le modèle essaie de produire pour chaque propriété.
+
+En pratique :
+
+- `@Generable` décrit la forme de l'objet Swift attendu.
+- `@Guide(description:)` explique le sens métier d'un champ.
+- `@Guide(..., .anyOf / .range / .minimumCount)` resserre l'espace des valeurs possibles.
+
+```swift
+import FoundationModels
+
+@Generable
+struct TicketLabel {
+    @Guide(description: "Niveau de priorité", .anyOf(["basse", "moyenne", "haute"]))
+    var priority: String = ""
+}
+```
+
+Plus ce contrat est clair, moins vous aurez besoin de parser ou de corriger le résultat après coup.
+
+---
+
 ## Pourquoi c'est utile
 
 Si votre UI attend :
@@ -42,6 +66,8 @@ struct FeaturePlan {
 ```
 
 Le rôle de `@Guide` est d'aider le modèle à comprendre ce que vous attendez pour chaque propriété.
+
+Autrement dit, `@Generable` dit "quelle forme doit sortir", et `@Guide` dit "quelles valeurs ont du sens pour cette propriété".
 
 ---
 

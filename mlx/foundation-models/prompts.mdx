@@ -10,6 +10,20 @@ Si votre sortie est instable, le problème vient souvent d'un prompt trop vague,
 
 ---
 
+## `Prompt` vs `Instructions`
+
+Les deux servent à guider le modèle, mais ils ne jouent pas le même rôle :
+
+| Question | `Prompt` | `Instructions` |
+|----------|----------|----------------|
+| Quand ça change | À chaque requête | Quand le rôle ou la feature change |
+| Ce que vous y mettez | La demande du moment, le contexte local, les variables UI | Le ton, le rôle, le format stable |
+| Qui l'alimente | Souvent l'action utilisateur | Presque toujours votre code produit |
+
+Le bon réflexe est simple : le prompt contient ce qui varie, les instructions contiennent ce qui doit rester stable.
+
+---
+
 ## La forme la plus simple
 
 ```swift
@@ -126,6 +140,51 @@ Pour un prompt donné, vous avez deux grandes options :
 - `streamResponse(to:)` si vous voulez afficher la réponse progressivement
 
 Vous verrez le streaming plus en détail dans la page dédiée.
+
+---
+
+## Quand toucher aux `GenerationOptions`
+
+Ne commencez pas par là. Touchez à `GenerationOptions` quand votre prompt est déjà correct et que vous voulez contrôler :
+
+- la stabilité de la réponse
+- sa longueur maximale
+- son niveau de variation
+
+```swift
+import FoundationModels
+
+let session = LanguageModelSession()
+
+let options = GenerationOptions(
+    sampling: .greedy,
+    temperature: 0.2,
+    maximumResponseTokens: 180
+)
+
+let response = try await session.respond(
+    to: "Résume ce ticket en 4 points maximum.",
+    options: options
+)
+```
+
+Ici, `sampling: .greedy` et une température basse poussent vers une réponse plus prévisible. `maximumResponseTokens` évite qu'une réponse courte devienne un mini-article.
+
+### Comment lire les modes de sampling
+
+- `.greedy` choisit toujours le token le plus probable. C'est le mode le plus stable.
+- `.random(top:seed:)` pioche parmi un nombre fixe de tokens probables. C'est utile si vous voulez un peu de variété, mais garder une réponse cadrée.
+- `.random(probabilityThreshold:seed:)` pioche dans un ensemble de tokens dont la probabilité reste au-dessus d'un seuil. Le nombre de candidats varie selon le contexte.
+
+Les mêmes options s'appliquent aussi à `streamResponse(to:options:)`.
+
+---
+
+## Repère avancé : `tokenCount(for:)`
+
+Apple documente aussi `tokenCount(for:)` sur `SystemLanguageModel` pour mesurer le poids d'instructions. C'est utile quand vous ajustez finement votre contexte, mais Apple l'indique en `26.4 beta`.
+
+Pour un premier design produit, ne basez pas votre feature sur ce point. Commencez par des prompts courts, puis mesurez seulement si vous avez un vrai problème de contexte.
 
 ---
 

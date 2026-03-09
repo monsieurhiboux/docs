@@ -32,6 +32,21 @@ Cette propriété suffit pour un premier filtrage. Pour une vraie UI, utilisez p
 
 ---
 
+## Quatre questions différentes
+
+Quand vous parlez de "disponibilité", vous mélangez souvent plusieurs sujets. Apple les sépare :
+
+| API | La vraie question |
+|-----|-------------------|
+| `isAvailable` | Le système est-il prêt maintenant ? |
+| `availability` | Pourquoi n'est-il pas prêt ? |
+| `supportsLocale(_:)` et `supportedLanguages` | La langue de l'utilisateur est-elle prise en charge ? |
+| `contextSize` | Combien de contexte le modèle peut-il accepter ? |
+
+Gardez cette séparation en tête. Un modèle peut être prêt, mais mal adapté à votre langue ou trop limité pour un long transcript.
+
+---
+
 ## Diagnostic détaillé
 
 Apple expose un état plus précis via `SystemLanguageModel.default.availability`.
@@ -79,6 +94,44 @@ print("Locale supportée :", supported)
 ```
 
 Si votre produit dépend d'une langue précise, faites cette vérification avant d'afficher la fonctionnalité comme disponible.
+
+Si vous avez besoin d'un état plus global, `supportedLanguages` vous donne la liste des langues déclarées par le système. `supportsLocale(_:)` reste néanmoins le check le plus direct au runtime.
+
+---
+
+## Disponible ne veut pas dire adapté à votre langue
+
+Un appareil peut être techniquement compatible, mais pas votre locale de travail.
+
+```swift
+import FoundationModels
+
+let model = SystemLanguageModel.default
+let locale = Locale(identifier: "fr-FR")
+
+if model.isAvailable && model.supportsLocale(locale) {
+    print("La fonctionnalité IA peut être activée.")
+} else {
+    print("Le modèle est indisponible ou la langue n'est pas prise en charge.")
+}
+```
+
+Pour une app multilingue, ce test évite un faux positif du type "le modèle existe, donc le bouton doit apparaître".
+
+---
+
+## Disponibilité et capacité de contexte
+
+`contextSize` répond à une autre question : quelle quantité de contexte le modèle peut accepter, pas si le modèle est prêt.
+
+```swift
+import FoundationModels
+
+let maxContextTokens = SystemLanguageModel.default.contextSize
+print(maxContextTokens)
+```
+
+En pratique, un modèle peut être disponible et tout de même refuser une requête parce que votre prompt, vos instructions et votre transcript deviennent trop longs.
 
 ---
 

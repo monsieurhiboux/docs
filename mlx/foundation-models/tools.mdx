@@ -30,8 +30,9 @@ Vous décrivez un outil en Swift. Le modèle décide ensuite s'il doit l'appeler
 import FoundationModels
 
 struct WeatherTool: Tool {
-    let name = "getWeather"
+    let name = "get_weather"
     let description = "Returns the current weather for a city."
+    let includesSchemaInInstructions = true
 
     @Generable
     struct Arguments {
@@ -65,7 +66,7 @@ print(response.content)
 
 ### Un nom explicite
 
-`getWeather` est préférable à `tool1`.
+Utilisez un nom unique et lisible comme `get_weather`, pas `tool1`.
 
 ### Une description claire
 
@@ -74,6 +75,23 @@ Le modèle lit la description. C'est elle qui l'aide à décider si l'outil est 
 ### Des arguments simples
 
 Plus les arguments sont clairs, plus le modèle les remplit correctement.
+
+### Des effets de bord assumés
+
+Un tool peut lire des données, mais aussi déclencher une action. Si c'est le cas, gardez son périmètre étroit et son erreur explicite.
+
+---
+
+## `includesSchemaInInstructions` : quand c'est utile
+
+La propriété `includesSchemaInInstructions` permet d'injecter dans la session le nom du tool, sa description et le schéma de ses arguments.
+
+Pour un développeur intermédiaire, la règle pratique est simple :
+
+- activez cette injection quand vous voulez aider le modèle à comprendre rapidement quand appeler le tool
+- désactivez-la seulement si vous avez une raison claire de contrôler ce contexte autrement
+
+Cette propriété n'améliore pas votre logique métier. Elle aide surtout le modèle à mieux choisir et remplir le tool.
 
 ---
 
@@ -92,7 +110,32 @@ struct WeatherResult {
 }
 ```
 
-Le tool peut retourner une donnée structurée, et la session peut ensuite s'intégrer plus proprement dans votre UI.
+Le pattern le plus robuste est souvent le suivant :
+
+1. le tool récupère la donnée réelle au runtime
+2. la sortie structurée impose la forme finale attendue par votre UI
+
+```swift
+@Generable
+struct WeatherAdvice {
+    @Guide(description: "Conseil météo en une phrase")
+    var summary: String = ""
+
+    @Guide(description: "Tenue recommandée")
+    var outfit: String = ""
+}
+
+let session = LanguageModelSession(
+    tools: [WeatherTool()]
+)
+
+let result = try await session.respond(
+    to: "À partir de la météo actuelle à Paris, donne un conseil simple.",
+    generating: WeatherAdvice.self
+)
+```
+
+Le tool sert alors à récupérer la vérité terrain. Le type Swift sert à cadrer la réponse finale.
 
 ---
 

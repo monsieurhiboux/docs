@@ -21,6 +21,37 @@ Si votre UI affiche du texte généré, le streaming est souvent le meilleur dé
 
 ---
 
+## Streaming, `isResponding` et `GenerationOptions`
+
+Ces trois éléments vont souvent ensemble :
+
+- `streamResponse(to:options:)` pour livrer la réponse progressivement
+- `isResponding` pour protéger l'UI contre les doubles envois
+- `GenerationOptions` pour borner la longueur et le niveau de variation
+
+```swift
+import FoundationModels
+
+let session = LanguageModelSession()
+
+let options = GenerationOptions(
+    sampling: .greedy,
+    temperature: 0.2,
+    maximumResponseTokens: 220
+)
+
+for try await partial in session.streamResponse(
+    to: "Explique le rôle d'un transcript en 4 points.",
+    options: options
+) {
+    print(partial.content)
+}
+```
+
+Dans ce type de flow, `isResponding` devient votre garde-fou produit. Il évite qu'un utilisateur relance une seconde génération alors que la première est encore affichée en streaming.
+
+---
+
 ## Exemple de streaming texte
 
 ```swift
@@ -135,6 +166,7 @@ Dans ces cas-là, `respond(to:)` reste plus simple.
 - videz l'ancien contenu avant une nouvelle génération
 - montrez clairement qu'une réponse est en cours
 - gérez l'erreur dans la même zone d'UI
+- bornez souvent `maximumResponseTokens` si l'écran attend une réponse courte
 - ne forcez pas le streaming si l'écran a surtout besoin d'un résultat final
 
 ---
