@@ -1,11 +1,28 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
+  "theme": "maple",
   "name": "Otterly Space Docs LLM",
   "colors": {
-    "primary": "#1D4ED8",
+    "primary": "#3B82F6",
     "light": "#3B82F6",
-    "dark": "#1E40AF"
+    "dark": "#243A90"
+  },
+  "fonts": {
+    "heading": {
+      "family": "Inter",
+      "weight": 700
+    },
+    "body": {
+      "family": "Inter",
+      "weight": 400
+    }
+  },
+  "background": {
+    "decoration": "grid",
+    "color": {
+      "light": "#F5F7FB",
+      "dark": "#0F172A"
+    }
   },
   "favicon": "/favicon.svg",
   "navigation": {
@@ -125,15 +142,25 @@
   "navbar": {
     "links": [
       {
+        "label": "X",
+        "href": "https://x.com/OtterlySpace",
+        "icon": "x-twitter"
+      },
+      {
+        "label": "Bluesky",
+        "href": "https://bsky.app/profile/otterly.space",
+        "icon": "bluesky"
+      },
+      {
         "label": "GitHub",
-        "href": "https://github.com/ml-explore/mlx"
+        "href": "https://github.com/OtterlySpace",
+        "icon": "github"
+      },
+      {
+        "label": "Logo de Otterly",
+        "href": "https://otterly.space/"
       }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "MLX Community",
-      "href": "https://huggingface.co/mlx-community"
-    }
+    ]
   },
   "contextual": {
     "options": [
@@ -147,5 +174,8 @@
       "vscode"
     ]
   },
-  "logo": "/images/logo.svg"
+  "logo": {
+    "light": "/images/otterly-mark.svg",
+    "dark": "/images/otterly-mark.svg"
+  }
 }

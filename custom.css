@@ -1,0 +1,416 @@
+:root {
+  --otter-sidebar-width: 21rem;
+  --otter-bg-light: #f5f7fb;
+  --otter-surface-light: rgba(255, 255, 255, 0.78);
+  --otter-border-light: rgba(15, 23, 42, 0.08);
+  --otter-text-light: #0f172a;
+  --otter-muted-light: #475569;
+  --otter-bg-dark: #0f172a;
+  --otter-surface-dark: rgba(15, 23, 42, 0.76);
+  --otter-border-dark: rgba(148, 163, 184, 0.16);
+  --otter-text-dark: #e2e8f0;
+  --otter-muted-dark: #94a3b8;
+  --otter-blue: #3b82f6;
+  --otter-blue-bright: #3b82f6;
+  --otter-green: #18e299;
+  --otter-shadow-light: 0 24px 60px rgba(15, 23, 42, 0.08);
+  --otter-shadow-dark: 0 24px 60px rgba(2, 6, 23, 0.32);
+}
+
+html {
+  background:
+    radial-gradient(circle at top right, rgba(91, 119, 234, 0.14), transparent 32%),
+    radial-gradient(circle at 18% 8%, rgba(24, 226, 153, 0.12), transparent 20%),
+    var(--otter-bg-light);
+}
+
+html.dark {
+  background:
+    radial-gradient(circle at top right, rgba(91, 119, 234, 0.2), transparent 30%),
+    radial-gradient(circle at 16% 10%, rgba(24, 226, 153, 0.1), transparent 18%),
+    var(--otter-bg-dark);
+}
+
+body {
+  background: transparent;
+}
+
+.bg-primary,
+html.dark .bg-primary-light {
+  background-color: #3b82f6 !important;
+}
+
+.text-primary,
+html.dark .text-primary-light {
+  color: #3b82f6 !important;
+}
+
+html.dark #navbar,
+html.dark #navbar-transition,
+html.dark #navbar-transition-maple {
+  background: var(--otter-surface-dark);
+  border-bottom-color: var(--otter-border-dark);
+  box-shadow: 0 18px 48px rgba(2, 6, 23, 0.28);
+}
+
+#search-bar-entry,
+#search-bar-entry-mobile {
+  border-radius: 999px;
+  border: 1px solid var(--otter-border-light);
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+}
+
+html.dark #search-bar-entry,
+html.dark #search-bar-entry-mobile {
+  border-color: var(--otter-border-dark);
+  background: rgba(15, 23, 42, 0.88);
+  box-shadow: 0 12px 34px rgba(2, 6, 23, 0.28);
+}
+
+#topbar-cta-button {
+  border-radius: 999px;
+  border: 0;
+  background: linear-gradient(135deg, var(--otter-blue), var(--otter-blue-bright));
+  box-shadow: 0 14px 30px rgba(48, 73, 181, 0.24);
+  transition:
+    transform 180ms ease,
+    filter 180ms ease,
+    box-shadow 180ms ease;
+}
+
+#topbar-cta-button:hover {
+  filter: brightness(1.04);
+  transform: translateY(-1px);
+}
+
+#sidebar-content > div:first-child > a.select-none,
+#content-container a.select-none[data-slot="context-menu-trigger"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+#sidebar-content > div:first-child > a.select-none::after,
+#content-container a.select-none[data-slot="context-menu-trigger"]::after {
+  content: "Otterly Space Docs LLM";
+  color: var(--otter-text-light);
+  font-size: 0.98rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+html.dark #sidebar-content > div:first-child > a.select-none::after,
+html.dark #content-container a.select-none[data-slot="context-menu-trigger"]::after {
+  color: var(--otter-text-dark);
+}
+
+.nav-logo {
+  height: 2rem !important;
+  max-width: none !important;
+  padding: 0 !important;
+}
+
+.nav-tabs-item,
+.navbar-link,
+.nav-anchor {
+  font-weight: 600;
+}
+
+#navigation-items > ul:first-child::before {
+  content: "Liens externes";
+  display: block;
+  padding-left: 1rem;
+  margin-bottom: 0.875rem;
+  color: var(--otter-text-light);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+#table-of-contents-content{
+  box-shadow: 0 3px 0px rgba(15, 23, 42, 0.03) !important;
+  padding: 15px !important;
+}
+
+html.dark #navigation-items > ul:first-child::before {
+  color: var(--otter-text-dark);
+}
+
+#content-container {
+  position: relative;
+}
+
+#page-title {
+  letter-spacing: -0.04em;
+}
+
+.mdx-content h1,
+#page-title {
+  font-size: clamp(2.9rem, 5vw, 4.4rem);
+  line-height: 0.94;
+  font-weight: 700;
+}
+
+.mdx-content h2 {
+  font-size: clamp(1.8rem, 2.7vw, 2.5rem);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-weight: 700;
+}
+
+.mdx-content h3 {
+  font-size: clamp(1.3rem, 2vw, 1.65rem);
+  line-height: 1.12;
+  letter-spacing: -0.025em;
+  font-weight: 650;
+}
+
+.mdx-content h5 {
+  font-weight: 700;
+}
+
+#content-container .eyebrow {
+  color: #2563eb !important;
+  font-size: 1.125rem !important;
+  font-weight: 600 !important;
+  text-transform: uppercase;
+}
+
+html.dark #content-container .eyebrow {
+  color: #3b82f6 !important;
+}
+
+.mdx-content p,
+.mdx-content li,
+.mdx-content td,
+.mdx-content th {
+  color: var(--otter-muted-light);
+}
+
+html.dark .mdx-content p,
+html.dark .mdx-content li,
+html.dark .mdx-content td,
+html.dark .mdx-content th {
+  color: var(--otter-muted-dark);
+}
+
+.mdx-content strong,
+.mdx-content h1,
+.mdx-content h2,
+.mdx-content h3,
+.mdx-content h4 {
+  color: var(--otter-text-light);
+}
+
+html.dark .mdx-content strong,
+html.dark .mdx-content h1,
+html.dark .mdx-content h2,
+html.dark .mdx-content h3,
+html.dark .mdx-content h4 {
+  color: var(--otter-text-dark);
+}
+
+.mdx-content a:not(.card) {
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.18em;
+}
+
+#table-of-contents-content .toc-item[class*="border-primary"] > a,
+#table-of-contents-content a[class*="text-primary"] {
+  font-weight: 700 !important;
+}
+
+.mdx-content :not(pre) > code {
+  border: 1px solid rgba(48, 73, 181, 0.16);
+  border-radius: 999px;
+  background: rgba(48, 73, 181, 0.08);
+  padding: 0.16rem 0.52rem;
+}
+
+html.dark .mdx-content :not(pre) > code {
+  border-color: rgba(91, 119, 234, 0.2);
+  background: rgba(91, 119, 234, 0.14);
+}
+
+.card,
+.callout,
+.code-block,
+#pagination,
+#sidebar-content,
+#table-of-contents-content {
+  border: 1px solid var(--otter-border-light);
+  border-radius: 24px;
+  background: var(--otter-surface-light);
+  box-shadow: var(--otter-shadow-light);
+}
+
+html.dark .card,
+html.dark .callout,
+html.dark .code-block,
+html.dark #pagination,
+html.dark #sidebar-content,
+html.dark #table-of-contents-content {
+  border-color: var(--otter-border-dark);
+  background: var(--otter-surface-dark);
+  box-shadow: var(--otter-shadow-dark);
+}
+
+.card {
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.card [data-component-part="card-title"] {
+  font-size: 1.65rem;
+  line-height: 1.05;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(48, 73, 181, 0.22);
+  box-shadow: 0 28px 64px rgba(15, 23, 42, 0.12);
+}
+
+html.dark .card:hover {
+  border-color: rgba(91, 119, 234, 0.28);
+  box-shadow: 0 28px 64px rgba(2, 6, 23, 0.38);
+}
+
+#sidebar > ul:last-child a[href="https://otterly.space/"] {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding-top: 0.6rem;
+  color: transparent !important;
+  font-size: 0 !important;
+  line-height: 0 !important;
+  overflow: hidden;
+}
+
+#sidebar > ul:last-child a[href="https://otterly.space/"]::before {
+  content: "";
+  display: block;
+  width: min(11.5rem, 100%);
+  height: 2rem;
+  margin-left: -55px;
+  background: url("/images/otterly-full-logo.svg") center / contain no-repeat;
+}
+
+#sidebar > ul:last-child a[href="https://otterly.space/"]:hover::before {
+  filter: brightness(1.03);
+}
+
+nav.text-sm .navbar-link a[href="https://otterly.space/"] {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0 !important;
+  color: transparent !important;
+  font-size: 0 !important;
+  line-height: 0 !important;
+  overflow: hidden;
+}
+
+nav.text-sm .navbar-link a[href="https://otterly.space/"]::before {
+  content: "";
+  display: block;
+  width: min(11.5rem, 100%);
+  height: 2rem;
+  margin-left: -55px;
+  background: url("/images/otterly-full-logo.svg") center / contain no-repeat;
+}
+
+nav.text-sm .navbar-link a[href="https://otterly.space/"]:hover::before {
+  filter: brightness(1.03);
+}
+
+#navbar li:has(> a[href="https://otterly.space/"]),
+#navbar-transition li:has(> a[href="https://otterly.space/"]),
+#navbar-transition-maple li:has(> a[href="https://otterly.space/"]) {
+  display: none !important;
+}
+
+.code-block,
+[data-component-part="code-block-root"] {
+  overflow: hidden;
+  border-radius: 24px;
+}
+
+#footer {
+  border-top-color: var(--otter-border-light);
+}
+
+html.dark #footer {
+  border-top-color: var(--otter-border-dark);
+}
+
+@media (min-width: 1024px) {
+  #sidebar {
+    width: var(--otter-sidebar-width) !important;
+    border-right: 0 !important;
+  }
+
+  #sidebar > ul:last-child {
+    width: calc(var(--otter-sidebar-width) - 1px) !important;
+    border-top: 0 !important;
+  }
+
+  #sidebar-content {
+    padding-left: 1.5rem !important;
+    padding-right: 1.5rem !important;
+  }
+
+  #content-container {
+    left: auto !important;
+    margin-left: var(--otter-sidebar-width) !important;
+  }
+
+  #navbar-transition-maple {
+    left: var(--otter-sidebar-width) !important;
+  }
+
+  #sidebar-content,
+  #table-of-contents-content {
+    backdrop-filter: blur(16px);
+  }
+}
+
+@media (max-width: 1023px) {
+  #navbar li:has(> a[href="https://otterly.space/"]),
+  #navbar-transition li:has(> a[href="https://otterly.space/"]),
+  #navbar-transition-maple li:has(> a[href="https://otterly.space/"]) {
+    display: flex !important;
+  }
+
+  #navbar a[href="https://otterly.space/"],
+  #navbar-transition a[href="https://otterly.space/"],
+  #navbar-transition-maple a[href="https://otterly.space/"] {
+    display: flex !important;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0 !important;
+    color: transparent !important;
+    font-size: 0 !important;
+    line-height: 0 !important;
+    overflow: hidden;
+  }
+
+  #navbar a[href="https://otterly.space/"]::before,
+  #navbar-transition a[href="https://otterly.space/"]::before,
+  #navbar-transition-maple a[href="https://otterly.space/"]::before {
+    content: "";
+    display: block;
+    width: min(11.5rem, 100%);
+    height: 2rem;
+    margin-left: -55px;
+    background: url("/images/otterly-full-logo.svg") center / contain no-repeat;
+  }
+
+  #content-container a.select-none[data-slot="context-menu-trigger"]::after {
+    font-size: 0.9rem;
+  }
+}
