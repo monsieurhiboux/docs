@@ -1,64 +1,74 @@
 ---
 title: "Quick Start"
-description: "Faites tourner votre premier LLM sur Apple Silicon en quelques commandes"
+description: "Lancer un premier modèle local avec MLX et mlx-lm"
 icon: "rocket"
 ---
 
-Vous avez installé MLX. Voici comment utiliser vos premiers modèles en 5 minutes.
+Vous avez installé MLX. L'objectif maintenant est simple : lancer un modèle, poser une question, puis comprendre les trois modes d'usage les plus utiles.
 
 ---
 
-## 1. Génération de texte en ligne de commande
+## 1. Tester en ligne de commande
 
-La façon la plus simple de commencer :
+Commencez avec la CLI. C'est le moyen le plus rapide de vérifier que tout fonctionne.
 
 ```bash
 mlx_lm.generate \
   --model mlx-community/Llama-3.2-3B-Instruct-4bit \
-  --prompt "Qu'est-ce que le fine-tuning LoRA ?"
+  --prompt "Explique la différence entre MLX et Foundation Models."
 ```
 
-**Options utiles :**
+Si la commande aboutit, votre environnement est prêt.
 
-| Option | Description | Exemple |
-|--------|-------------|---------|
-| `--model` | Modèle HF ou chemin local | `mlx-community/Mistral-7B-v0.3-4bit` |
-| `--prompt` | Votre prompt | `"Explique le gradient descent"` |
-| `--max-tokens` | Nombre max de tokens générés | `--max-tokens 500` |
-| `--temp` | Température (0=déterministe) | `--temp 0.7` |
-| `--max-kv-size` | Taille du cache KV (longs contextes) | `--max-kv-size 1024` |
+### Options utiles
+
+| Option | À quoi elle sert |
+|--------|------------------|
+| `--model` | Choisir le modèle Hugging Face ou un dossier local |
+| `--prompt` | Fournir la demande à exécuter |
+| `--max-tokens` | Limiter la longueur de la réponse |
+| `--temp` | Rendre la génération plus stable ou plus créative |
 
 ---
 
-## 2. Mode Chat interactif
+## 2. Passer en mode chat
 
-Pour une conversation multi-tours (garde le modèle en mémoire) :
+Si vous voulez conserver le contexte entre plusieurs messages, utilisez `mlx_lm.chat` :
 
 ```bash
 mlx_lm.chat --model mlx-community/Llama-3.2-3B-Instruct-4bit
 ```
 
-<Tip>
-Utilisez `mlx_lm.chat` pour les grands modèles (30B+) : cela garde le modèle chargé en RAM entre les messages, ce qui est bien plus efficace.
-</Tip>
+Ce mode est pratique pour :
+
+- tester plusieurs prompts sans recharger le modèle
+- comparer le comportement d'un modèle
+- simuler une conversation avant de l'intégrer dans une app
 
 ---
 
-## 3. Utilisation via Python
+## 3. Utiliser `mlx-lm` en Python
+
+Quand la CLI devient trop limitée, passez à l'API Python :
 
 ```python
 from mlx_lm import load, generate
 
-# Charger le modèle et le tokenizer
 model, tokenizer = load("mlx-community/Llama-3.2-3B-Instruct-4bit")
 
-# Générer du texte
-prompt = "Explique la mémoire unifiée Apple Silicon en 3 points."
-response = generate(model, tokenizer, prompt=prompt, max_tokens=300, verbose=True)
+response = generate(
+    model,
+    tokenizer,
+    prompt="Explique la mémoire unifiée d'Apple Silicon.",
+    max_tokens=250,
+)
+
 print(response)
 ```
 
-### Avec un template de chat
+### Avec un modèle de type chat
+
+Pour les modèles instruction ou chat, appliquez le template du tokenizer :
 
 ```python
 from mlx_lm import load, generate
@@ -66,108 +76,97 @@ from mlx_lm import load, generate
 model, tokenizer = load("mlx-community/Mistral-7B-Instruct-v0.3-4bit")
 
 messages = [
-    {"role": "user", "content": "Quel est le meilleur modèle pour le fine-tuning sur Mac ?"}
+    {"role": "system", "content": "Tu réponds de façon concise."},
+    {"role": "user", "content": "Quand utiliser LoRA ?"},
 ]
 
-# Appliquer le template de chat du modèle
-text = tokenizer.apply_chat_template(
+prompt = tokenizer.apply_chat_template(
     messages,
     tokenize=False,
-    add_generation_prompt=True
+    add_generation_prompt=True,
 )
 
-response = generate(model, tokenizer, prompt=text, max_tokens=500)
+response = generate(model, tokenizer, prompt=prompt, max_tokens=300)
 print(response)
 ```
 
 ---
 
-## 4. Modèles recommandés pour débuter
+## 4. Choisir un premier modèle raisonnable
+
+Pour débuter, ne cherchez pas "le meilleur modèle" dans l'absolu. Choisissez un modèle qui rentre confortablement dans la mémoire de votre machine.
 
 <CardGroup cols={2}>
-  <Card title="Llama 3.2 3B 4-bit" icon="microchip">
-    **~2 GB RAM** — Parfait pour tester. Rapide, léger.
-    ```
-    mlx-community/Llama-3.2-3B-Instruct-4bit
-    ```
+  <Card title="3B ou 4B instruct" icon="microchip">
+    Idéal pour valider un setup, écrire des scripts et faire des tests rapides.
   </Card>
-  <Card title="Mistral 7B 4-bit" icon="bolt">
-    **~4 GB RAM** — Bon équilibre qualité/vitesse.
-    ```
-    mlx-community/Mistral-7B-Instruct-v0.3-4bit
-    ```
+  <Card title="7B instruct" icon="bolt">
+    Bon compromis pour un usage général sur une machine avec un peu plus de marge.
   </Card>
-  <Card title="Mistral Small 24B" icon="star">
-    **~12 GB RAM** — Qualité GPT-4. Recommandé par Simon Willison.
-    ```
-    mlx-community/Mistral-Small-24B-Instruct-2501-4bit
-    ```
+  <Card title="Modèles plus grands" icon="scale-balanced">
+    À réserver aux machines avec beaucoup de mémoire unifiée et à des besoins réels.
   </Card>
-  <Card title="DeepSeek-R1 32B" icon="brain">
-    **~18 GB RAM** — Raisonnement avancé avec blocs `<think>`.
-    ```
-    mlx-community/DeepSeek-R1-Distill-Qwen-32B-4bit
-    ```
+  <Card title="Versions 4-bit" icon="compress">
+    Le meilleur point de départ dans la plupart des cas.
   </Card>
 </CardGroup>
 
+Vous trouverez des exemples concrets dans [MLX Community](/mlx/models/mlx-community).
+
 ---
 
-## 5. Quantization d'un modèle existant
+## 5. Convertir un modèle Hugging Face en format MLX
 
-Vous pouvez convertir n'importe quel modèle Hugging Face en format MLX quantisé :
+Si le modèle qui vous intéresse n'existe pas déjà côté `mlx-community`, vous pouvez le convertir :
 
 ```bash
-# Télécharger et quantiser en 4-bit
 mlx_lm.convert \
   --hf-path microsoft/Phi-3-mini-4k-instruct \
   -q \
   --q-bits 4 \
-  --mlx-path ./my_quantized_model
+  --mlx-path ./my-mlx-model
 ```
 
-Cela crée un dossier local avec le modèle quantisé, prêt à être utilisé ou partagé.
+Vous obtenez un dossier local utilisable ensuite avec `mlx_lm.generate`.
 
 ---
 
-## 6. Serveur OpenAI-compatible
+## 6. Exposer un serveur local compatible API
 
-MLX-LM inclut un serveur compatible avec l'API OpenAI :
+Si votre app Swift, votre frontend ou un autre outil doit parler à un modèle local via HTTP, lancez le serveur intégré :
 
 ```bash
-mlx_lm.server --model mlx-community/Llama-3.2-3B-Instruct-4bit --port 8080
+mlx_lm.server \
+  --model mlx-community/Llama-3.2-3B-Instruct-4bit \
+  --port 8080
 ```
 
-Ensuite, utilisez-le comme n'importe quelle API OpenAI :
+Puis consommez-le avec un client compatible :
 
 ```python
 from openai import OpenAI
 
-client = OpenAI(base_url="http://localhost:8080/v1", api_key="fake")
+client = OpenAI(
+    base_url="http://localhost:8080/v1",
+    api_key="not-used",
+)
+
 response = client.chat.completions.create(
     model="mlx-community/Llama-3.2-3B-Instruct-4bit",
-    messages=[{"role": "user", "content": "Hello!"}]
+    messages=[{"role": "user", "content": "Bonjour"}],
 )
+
 print(response.choices[0].message.content)
 ```
 
 ---
 
-## Performances typiques sur Apple Silicon
+## La bonne suite selon votre objectif
 
-| Puce | Mémoire | Modèle | Tokens/s |
-|------|---------|--------|----------|
-| M1 (8GB) | 8 GB | 3B 4-bit | ~30 tok/s |
-| M2 Pro (16GB) | 16 GB | 7B 4-bit | ~50 tok/s |
-| M3 Max (36GB) | 36 GB | 13B 4-bit | ~60 tok/s |
-| M4 Max (64GB) | 64 GB | 70B 4-bit | ~20 tok/s |
+- Si vous voulez comparer plusieurs backends locaux, allez vers [LLMs locaux sur Mac](/mlx/local-llms/overview).
+- Si vous voulez fine-tuner un modèle, commencez par [LoRA](/mlx/fine-tuning/lora-guide).
+- Si vous voulez intégrer un modèle dans une app Swift, lisez [Intégration Swift](/mlx/local-llms/swift-integration).
 
-<Info>
-MLX est généralement **2x plus rapide** que llama.cpp sur la même machine, car il utilise réellement les GPU Metal au lieu de se limiter au CPU.
-</Info>
-
----
-
-<Card title="Prochaine étape : Fine-tuning LoRA" icon="dumbbell" href="/mlx/fine-tuning/lora-guide">
-  Apprenez à fine-tuner votre propre LLM sur Mac avec LoRA →
+<Card title="Étape suivante : LLMs locaux sur Mac" icon="server" href="/mlx/local-llms/overview">
+  Comparer MLX, Ollama, llama.cpp et les options Swift.
 </Card>

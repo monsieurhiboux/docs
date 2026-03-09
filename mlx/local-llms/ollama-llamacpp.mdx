@@ -1,202 +1,131 @@
 ---
 title: "Ollama & llama.cpp"
-description: "Faire tourner des LLMs localement avec Ollama et llama.cpp sur Apple Silicon"
+description: "Comprendre quand utiliser Ollama ou llama.cpp à la place de MLX"
 icon: "box"
 ---
 
-## Ollama — La simplicité avant tout
+MLX n'est pas la seule façon d'exécuter des LLMs localement sur un Mac. Deux alternatives reviennent souvent : **Ollama** et **llama.cpp**.
 
-**Ollama** est l'outil le plus accessible pour faire tourner des LLMs sur Mac. Il gère le téléchargement, la gestion des modèles, et expose automatiquement une API compatible OpenAI.
+Elles ne remplacent pas forcément MLX. Elles couvrent simplement d'autres priorités.
+
+---
+
+## Ollama : le plus simple pour démarrer
+
+Ollama masque une grande partie de la complexité :
+
+- téléchargement des modèles
+- lancement d'un serveur local
+- commandes simples pour tester
+- API locale prête à l'emploi
 
 ### Installation
 
 ```bash
-# Via Homebrew
 brew install ollama
-
-# Ou télécharger directement sur ollama.com
 ```
 
-### Démarrer et utiliser
+### Premier test
 
 ```bash
-# Démarrer le serveur Ollama
-ollama serve
-
-# Télécharger et lancer un modèle
 ollama run llama3.2
-ollama run mistral
-ollama run phi3
-
-# Mode interactif
-ollama run llama3.2
->>> Bonjour ! Comment fonctionne le fine-tuning ?
 ```
 
-### Modèles populaires via Ollama
+### Pourquoi beaucoup de développeurs commencent par là
 
-```bash
-ollama pull llama3.2          # Llama 3.2 3B (compact, rapide)
-ollama pull llama3.1:8b       # Llama 3.1 8B
-ollama pull mistral           # Mistral 7B
-ollama pull deepseek-r1:8b    # DeepSeek-R1 avec raisonnement
-ollama pull qwen2.5:14b       # Qwen 2.5 14B
-ollama pull nomic-embed-text  # Modèle d'embeddings
-```
+- vous n'avez presque rien à configurer
+- vous changez facilement de modèle
+- vous obtenez rapidement une API locale pour vos tests
 
-### API REST compatible OpenAI
-
-Ollama expose automatiquement une API OpenAI-compatible sur `http://localhost:11434` :
+### Exemple d'appel depuis Python
 
 ```python
 from openai import OpenAI
 
 client = OpenAI(
     base_url="http://localhost:11434/v1",
-    api_key="ollama"  # clé fictive
+    api_key="ollama",
 )
 
 response = client.chat.completions.create(
     model="llama3.2",
     messages=[
-        {"role": "user", "content": "Explique le fine-tuning en 2 phrases"}
-    ]
+        {"role": "user", "content": "Explique le fine-tuning en deux phrases."}
+    ],
 )
+
 print(response.choices[0].message.content)
 ```
 
-### Intégration dans une app Swift
-
-```swift
-import Foundation
-
-struct OllamaClient {
-    let baseURL = URL(string: "http://localhost:11434/api")!
-
-    func generate(model: String, prompt: String) async throws -> String {
-        let url = baseURL.appendingPathComponent("generate")
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-
-        let body = ["model": model, "prompt": prompt, "stream": false] as [String: Any]
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
-
-        let (data, _) = try await URLSession.shared.data(for: request)
-        let json = try JSONDecoder().decode([String: String].self, from: data)
-        return json["response"] ?? ""
-    }
-}
-```
-
 ---
 
-## llama.cpp — Léger et universel
+## llama.cpp : le backend très répandu autour de GGUF
 
-**llama.cpp** est une implémentation C++ ultra-portable de l'inférence LLM. Il fonctionne sur Mac, Linux, Windows, et même sur des Raspberry Pi.
+`llama.cpp` est souvent le bon choix si vous travaillez déjà avec des modèles au format `GGUF` ou si vous avez besoin d'une base très portable.
 
-### Installation sur Mac
+### Installation
 
 ```bash
-# Via Homebrew
 brew install llama.cpp
-
-# Ou compiler depuis les sources
-git clone https://github.com/ggml-org/llama.cpp
-cd llama.cpp
-cmake -B build -DLLAMA_METAL=ON  # Activer Metal GPU
-cmake --build build --config Release
 ```
 
-### Télécharger des modèles GGUF
-
-Les modèles llama.cpp sont au format **GGUF** (successeur de GGML). Les meilleures sources :
-- [Hugging Face - TheBloke](https://huggingface.co/TheBloke) (millions de téléchargements)
-- [Hugging Face - bartowski](https://huggingface.co/bartowski)
+### Exemple avec un modèle GGUF
 
 ```bash
-# Via huggingface-cli
-pip install huggingface_hub
-huggingface-cli download bartowski/Llama-3.2-3B-Instruct-GGUF \
-  --include "Llama-3.2-3B-Instruct-Q4_K_M.gguf" \
-  --local-dir ./models
+llama-cli \
+  -m ./models/MonModele.gguf \
+  -p "Bonjour" \
+  -n 200
 ```
 
-### Inférence de base
+### Pourquoi l'utiliser
 
-```bash
-# Génération simple
-./build/bin/llama-cli \
-  -m ./models/Llama-3.2-3B-Instruct-Q4_K_M.gguf \
-  -p "Bonjour !" \
-  -n 200 \
-  --gpu-layers 99  # Utiliser tous les layers sur GPU Metal
-
-# Serveur compatible OpenAI
-./build/bin/llama-server \
-  -m ./models/Llama-3.2-3B-Instruct-Q4_K_M.gguf \
-  --port 8080 \
-  --gpu-layers 99
-```
-
-### Quantifications GGUF disponibles
-
-| Suffixe | Bits | Qualité | Taille (7B) |
-|---------|------|---------|-------------|
-| Q8_0 | 8-bit | Excellent | ~7 GB |
-| Q6_K | 6-bit | Très bon | ~6 GB |
-| Q5_K_M | 5-bit | Bon | ~5 GB |
-| Q4_K_M | 4-bit | ✓ Recommandé | ~4 GB |
-| Q3_K_M | 3-bit | Acceptable | ~3 GB |
-| Q2_K | 2-bit | Dégradé | ~2.5 GB |
-
-### Usage dans une app iOS avec XCFramework
-
-llama.cpp fournit un **XCFramework** précompilé pour iOS/macOS :
-
-```swift
-// Package.swift
-dependencies: [
-    .package(
-        url: "https://github.com/ggml-org/llama.cpp",
-        branch: "master"
-    )
-]
-```
-
-```swift
-import llama
-
-class LlamaInferenceEngine {
-    private var model: OpaquePointer?
-    private var context: OpaquePointer?
-
-    func load(modelPath: String) {
-        var params = llama_model_default_params()
-        params.n_gpu_layers = 99  // Metal acceleration
-        model = llama_load_model_from_file(modelPath, params)
-    }
-
-    // Générer du texte...
-}
-```
+- le format `GGUF` est très courant
+- l'écosystème autour de `llama.cpp` est vaste
+- le même backend peut vous suivre sur plusieurs plateformes
 
 ---
 
-## Comparatif Ollama vs llama.cpp vs MLX pour les devs
+## Ollama ou llama.cpp ?
 
-| | Ollama | llama.cpp | MLX |
-|--|--------|-----------|-----|
-| **Installation** | 1 commande | Compilation nécessaire | `pip install` |
-| **Gestion modèles** | Automatique | Manuelle | Via HF |
-| **API REST** | Intégrée | Serveur séparé | `mlx_lm.server` |
-| **Swift/iOS** | HTTP client | XCFramework | mlx-swift |
-| **Fine-tuning** | ❌ | ❌ | ✅ |
-| **Performances** | Bonnes | Bonnes | Meilleures |
-| **Multiplateforme** | ✅ | ✅ | Mac seulement |
+### Prenez Ollama si
+
+- vous voulez aller vite
+- vous préférez une expérience produit à une boîte à outils bas niveau
+- vous cherchez surtout un serveur local facile à consommer
+
+### Prenez llama.cpp si
+
+- vous gérez directement vos fichiers `GGUF`
+- vous voulez plus de contrôle sur la ligne de commande
+- vous cherchez une solution très portable
 
 ---
 
-<Card title="Intégration Swift & CoreML" icon="swift" href="/mlx/local-llms/swift-integration">
-  Embarquer un LLM directement dans vos apps iOS/macOS →
+## Et par rapport à MLX ?
+
+La vraie différence n'est pas seulement la performance. C'est surtout le workflow :
+
+| Outil | Point fort principal |
+|------|----------------------|
+| MLX | Écosystème Apple, fine-tuning, modèles MLX |
+| Ollama | Simplicité de démarrage |
+| llama.cpp | Portabilité et univers GGUF |
+
+Si votre priorité est Swift et Apple Silicon, MLX reste souvent le meilleur fil conducteur. Si votre priorité est de tester rapidement un modèle ou d'avoir une API locale immédiatement, Ollama est souvent plus direct.
+
+---
+
+## Recommandation pratique
+
+Pour un développeur moyen qui découvre le sujet :
+
+1. Testez un modèle avec Ollama pour comprendre le comportement d'un LLM local.
+2. Passez ensuite à MLX si vous voulez un meilleur contrôle, du fine-tuning ou un workflow Apple plus cohérent.
+3. Gardez `llama.cpp` en tête si vous travaillez déjà avec des modèles GGUF.
+
+---
+
+<Card title="Intégration Swift & options on-device" icon="swift" href="/mlx/local-llms/swift-integration">
+  Voir comment relier ces backends à une app Swift.
 </Card>

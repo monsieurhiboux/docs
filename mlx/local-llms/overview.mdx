@@ -1,123 +1,115 @@
 ---
-title: "LLMs Locaux sur Mac — Vue d'ensemble"
-description: "Comparaison complète de MLX, Ollama, llama.cpp, MLC-LLM et CoreML pour faire tourner des LLMs localement"
+title: "LLMs locaux sur Mac — vue d'ensemble"
+description: "Choisir entre MLX, Ollama, llama.cpp et les intégrations Swift pour exécuter des modèles localement"
 icon: "server"
 ---
 
-Une étude comparative de référence ([arxiv.org/abs/2511.05502](https://arxiv.org/abs/2511.05502)) a benchmarké les principaux frameworks d'inférence LLM sur Apple Silicon. Voici ce que vous devez savoir.
+Quand vous dites "je veux un LLM local sur mon Mac", vous pouvez en réalité viser des besoins très différents :
+
+- tester rapidement un modèle
+- exposer une API locale
+- intégrer un modèle open weight dans une app
+- utiliser le modèle système Apple dans Swift
+
+La bonne option dépend d'abord de votre objectif, pas du benchmark du moment.
 
 ---
 
-## Vue d'ensemble des options
+## Les quatre familles à connaître
 
 <CardGroup cols={2}>
   <Card title="MLX / mlx-lm" icon="apple" href="/mlx/local-llms/mlx-lm-generate">
-    Framework natif Apple. Performances maximales, fine-tuning intégré.
+    Le meilleur point d'entrée si vous voulez rester dans l'écosystème Apple et garder la main sur le modèle.
   </Card>
   <Card title="Ollama" icon="box" href="/mlx/local-llms/ollama-llamacpp">
-    Ergonomie développeur maximale. Docker pour les LLMs.
+    Le plus simple pour tester vite, exposer une API locale et changer de modèle facilement.
   </Card>
   <Card title="llama.cpp" icon="code" href="/mlx/local-llms/ollama-llamacpp">
-    Ultra-léger, universel, excellent pour l'inférence CPU+GPU mixte.
+    Une base solide si vous travaillez aussi hors Mac ou si vous utilisez beaucoup le format GGUF.
   </Card>
-  <Card title="CoreML / On-Device" icon="iphone" href="/mlx/local-llms/swift-integration">
-    Pour les apps iOS/macOS. Embarquer un LLM directement dans l'app.
+  <Card title="Swift on-device" icon="swift" href="/mlx/local-llms/swift-integration">
+    À considérer si votre destination finale est une app Apple en Swift.
   </Card>
 </CardGroup>
 
 ---
 
-## Comparaison des performances
+## Comment choisir
 
-| Framework | Throughput (tok/s) | TTFT | Mémoire | Ergonomie | Fine-tuning |
-|-----------|-------------------|------|---------|-----------|-------------|
-| **MLX** | 🥇 Le plus élevé | Moyen | Unifiée | ⭐⭐⭐⭐ | ✅ Intégré |
-| **MLC-LLM** | 🥈 Élevé | 🥇 Plus court | Configurable | ⭐⭐⭐ | ❌ |
-| **llama.cpp** | 🥉 Bon | Bon | Faible | ⭐⭐⭐⭐ | ⚠️ Limité |
-| **Ollama** | Moyen | Moyen | Moyen | ⭐⭐⭐⭐⭐ | ❌ |
-| **PyTorch MPS** | Bas | Lent | Standard | ⭐⭐⭐ | ✅ |
+### Choisissez MLX si
 
-> TTFT = Time To First Token
+- vous voulez travailler avec des modèles open weight sur Apple Silicon
+- vous envisagez du fine-tuning
+- vous voulez un workflow `Python + Swift`
+- vous préférez rester proche de l'écosystème `ml-explore`
 
----
+### Choisissez Ollama si
 
-## Quand utiliser quoi ?
+- vous débutez
+- vous voulez lancer un modèle en quelques minutes
+- vous avez surtout besoin d'une API locale simple
+- vous ne voulez pas gérer immédiatement les formats et conversions
 
-### Choisissez MLX si :
-- Vous voulez les **meilleures performances** sur Mac
-- Vous avez besoin de **fine-tuner** vos modèles
-- Vous développez en Python ou Swift
-- Vous voulez un contrôle fin sur l'inférence
+### Choisissez llama.cpp si
 
-### Choisissez Ollama si :
-- Vous débutez et voulez la **simplicité maximale**
-- Vous voulez une **API compatible OpenAI** sans configuration
-- Vous avez besoin de gérer plusieurs modèles facilement
-- Vous voulez intégrer dans des apps existantes rapidement
+- vous travaillez déjà avec des modèles GGUF
+- vous voulez un backend très répandu et très portable
+- vous devez faire tourner la même stack sur plusieurs plateformes
 
-### Choisissez llama.cpp si :
-- Vous avez besoin de **portabilité** (fonctionne aussi sur Linux/Windows)
-- Vous voulez une **empreinte mémoire minimale**
-- Vous avez un cas d'usage CPU-heavy
-- Vous développez des apps multiplateformes
+### Choisissez Foundation Models ou une intégration Swift dédiée si
 
-### Choisissez CoreML si :
-- Vous développez une **app iOS ou macOS** sans serveur
-- Vous avez besoin d'inférence **complètement on-device**
-- Vie privée maximale (aucune donnée ne quitte l'appareil)
-- Vous ciblez l'App Store
+- votre vrai produit est une app Apple
+- vous privilégiez l'expérience utilisateur SwiftUI
+- vous voulez d'abord valider un cas d'usage on-device côté app
 
 ---
 
-## Architecture de déploiement typique
+## Le critère le plus important : quel modèle voulez-vous utiliser ?
 
-```
-┌─────────────────────────────────────────────────────┐
-│                  Votre Mac                          │
-│                                                     │
-│  ┌─────────────┐  ┌─────────────┐  ┌────────────┐  │
-│  │   Python /  │  │   mlx-lm   │  │   Swift    │  │
-│  │   Scripts   │  │   server   │  │   App      │  │
-│  └──────┬──────┘  └──────┬──────┘  └─────┬──────┘  │
-│         │               │               │          │
-│         └───────────────┼───────────────┘          │
-│                         │                          │
-│                   ┌─────▼──────┐                   │
-│                   │  MLX Core  │                   │
-│                   │  (Metal)   │                   │
-│                   └─────┬──────┘                   │
-│                         │                          │
-│              ┌──────────▼──────────┐               │
-│              │   Unified Memory    │               │
-│              │  (CPU + GPU share)  │               │
-│              └─────────────────────┘               │
-└─────────────────────────────────────────────────────┘
-```
+Avant de choisir un backend, répondez à ces questions :
+
+1. Le modèle que vous visez existe-t-il déjà en format MLX ?
+2. Est-il disponible en GGUF ?
+3. Voulez-vous le fine-tuner plus tard ?
+4. Votre app doit-elle embarquer le modèle ou simplement appeler un serveur local ?
+
+Exemples :
+
+- si vous voulez surtout des modèles `mlx-community`, MLX est un choix naturel
+- si vous avez déjà un pipeline centré sur GGUF, `llama.cpp` ou Ollama sera souvent plus direct
+- si vous voulez une app Swift utilisant le modèle Apple, Foundation Models est plus simple qu'un modèle custom
 
 ---
 
-## Benchmarks sur différentes puces (Mistral 7B 4-bit)
+## Scénarios concrets
 
-| Puce | Mémoire | Tokens/s | RAM utilisée |
-|------|---------|----------|-------------|
-| M1 (8GB) | 8 GB | ~25 tok/s | ~6 GB |
-| M1 (16GB) | 16 GB | ~30 tok/s | ~6 GB |
-| M2 Pro (16GB) | 16 GB | ~45 tok/s | ~6 GB |
-| M3 Max (36GB) | 36 GB | ~65 tok/s | ~6 GB |
-| M4 Max (64GB) | 64 GB | ~90 tok/s | ~6 GB |
-| M5 (Neural Acc.) | 64 GB | ~2-4x M4 | ~6 GB |
+| Vous voulez... | Point de départ recommandé |
+|----------------|----------------------------|
+| Tester plusieurs modèles depuis le terminal | Ollama ou `mlx_lm.chat` |
+| Servir un modèle local à une app via HTTP | Ollama ou `mlx_lm.server` |
+| Fine-tuner un modèle localement | MLX / `mlx-lm` |
+| Ajouter une fonctionnalité IA dans une app Swift avec le minimum de friction | Foundation Models |
+| Intégrer un modèle open weight précis dans une app Apple | MLX Swift ou un serveur local dédié |
 
-<Note>
-Sur les puces **M5**, Apple a introduit de nouveaux **Neural Accelerators** dans le GPU qui accélèrent les workloads LLM jusqu'à **4x par rapport au M4** pour le time-to-first-token. Source : [Apple ML Research](https://machinelearning.apple.com/research/exploring-llms-mlx-m5)
-</Note>
+---
+
+## Recommandation simple pour un développeur Swift
+
+Si vous découvrez encore l'IA locale, suivez cet ordre :
+
+1. Testez quelques modèles avec `mlx-lm` ou Ollama.
+2. Vérifiez si votre cas d'usage peut être couvert par Foundation Models.
+3. Passez à MLX Swift seulement si vous avez vraiment besoin d'un modèle open weight spécifique dans l'app.
+
+Cet ordre évite de commencer par l'option la plus coûteuse en intégration.
 
 ---
 
 <CardGroup cols={2}>
-  <Card title="Générer du texte avec mlx-lm" icon="terminal" href="/mlx/local-llms/mlx-lm-generate">
-    CLI, API Python, serveur OpenAI-compatible →
+  <Card title="Générer avec mlx-lm" icon="terminal" href="/mlx/local-llms/mlx-lm-generate">
+    CLI, Python et serveur local.
   </Card>
-  <Card title="Ollama & llama.cpp" icon="box" href="/mlx/local-llms/ollama-llamacpp">
-    Setup Ollama, modèles GGUF, intégration →
+  <Card title="Ollama et llama.cpp" icon="box" href="/mlx/local-llms/ollama-llamacpp">
+    Les alternatives les plus courantes.
   </Card>
 </CardGroup>

@@ -1,294 +1,157 @@
 ---
 title: "Tools"
-description: "Étendre les capacités du modèle avec des Tools pour accéder à des données et APIs externes"
+description: "Étendre le modèle avec vos propres fonctions Swift"
 icon: "wrench"
 ---
 
-Le modèle on-device d'Apple est entraîné sur des données statiques. Il ne peut pas connaître la météo actuelle, les événements du calendrier de l'utilisateur, ou interroger une API. Les **Tools** permettent d'étendre ses capacités.
+Le modèle système Apple n'a pas accès tout seul à vos données, à votre base locale ou au web. Les **tools** servent à lui ouvrir des portes contrôlées.
+
+Ils sont utiles dès que le modèle doit :
+
+- lire une information dynamique
+- déclencher une action
+- aller chercher des données dans votre app
 
 ---
 
-## Pourquoi créer un Tool ?
+## L'idée simple
 
-```
-┌──────────┐     ┌──────────────────┐     ┌──────────┐
-│  Prompt  │ ──▶ │      Model       │ ──▶ │ Response │
-│          │     │                  │     │          │
-│ "Quel    │     │  Est-ce que j'ai │     │ "Il fait │
-│  temps   │     │  un Tool pour    │     │  22°C et │
-│  fait-il │     │  ça ?            │     │  soleil  │
-│  à       │     │    ↓ Oui         │     │  à       │
-│  Paris?" │     │  → WeatherTool   │     │  Paris." │
-└──────────┘     └──────────────────┘     └──────────┘
-```
+Vous décrivez un outil en Swift. Le modèle décide ensuite s'il doit l'appeler en fonction :
 
-Le modèle décide **automatiquement** quand utiliser un Tool en fonction de sa description.
+- de son nom
+- de sa description
+- de la forme de ses arguments
 
 ---
 
-## Anatomie d'un Tool
-
-Un Tool nécessite 4 éléments :
+## Exemple minimal
 
 ```swift
+import FoundationModels
+
 struct WeatherTool: Tool {
-
-    // 1. Conformité au protocole Tool
-
-    // 2. Un nom unique
     let name = "getWeather"
+    let description = "Returns the current weather for a city."
 
-    // 3. Une description en langage naturel
-    let description = "Obtient la météo actuelle pour un lieu donné"
-
-    // 4. Des Arguments (optionnels) — ce que le modèle fournit
     @Generable
     struct Arguments {
-        @Guide(description: "La ville ou le lieu pour la météo")
-        let location: String
+        @Guide(description: "The city to look up")
+        var city: String
     }
 
-    // 5. La fonction call — exécutée quand le modèle utilise le tool
     func call(arguments: Arguments) async throws -> String {
-        // Normalement : appel API réel
-        return "Il fait actuellement 22°C et ensoleillé à \(arguments.location)."
+        "Weather for \(arguments.city): 22°C and sunny."
     }
 }
 ```
 
-Le `name` et la `description` sont inclus avec chaque prompt pour que le modèle sache quand et comment utiliser le Tool.
-
-<Info>
-**Le modèle ne lit pas votre code Swift.** Il prend ses décisions uniquement en lisant le `name` et la `description` de chaque Tool. Un Tool nommé `"getW"` avec la description `"Tool météo"` sera rarement utilisé — le modèle ne saura pas à quoi il sert. Soyez descriptif et explicite.
-</Info>
-
----
-
-## Flux d'exécution d'un Tool
-
-```
-  Utilisateur           Modèle              Tool
-      │                   │                   │
-      │  "Météo à Paris"  │                   │
-      │──────────────────▶│                   │
-      │                   │  J'ai un Tool     │
-      │                   │  pour ça          │
-      │                   │                   │
-      │                   │  Créer Arguments  │
-      │                   │  location: Paris  │
-      │                   │──────────────────▶│
-      │                   │                   │
-      │                   │  "22°C, soleil"   │
-      │                   │◀──────────────────│
-      │                   │                   │
-      │  "Il fait 22°C    │                   │
-      │   et soleil à     │                   │
-      │   Paris."         │                   │
-      │◀──────────────────│                   │
-```
-
-Le modèle reformule la réponse du Tool dans son propre style.
-
-<Info>
-**La sortie du Tool ≠ la sortie du modèle.** Ce que votre fonction `call()` retourne n'est pas directement transmis à l'utilisateur. Le modèle lit votre réponse et la reformule dans son propre style, en ajoutant du contexte ou en omettant des informations. Si vous avez besoin de récupérer les données exactes du Tool (sans reformulation), utilisez Guided Generation avec `generating:` — le modèle sera alors contraint de remplir une structure Swift typée plutôt que de faire du texte libre.
-</Info>
-
----
-
-## Utiliser un Tool
-
-Passez vos Tools au `LanguageModelSession` lors de la création :
-
-```swift
-struct WeatherView: View {
-    @State private var response = ""
-
-    var body: some View {
-        VStack(spacing: 20) {
-            Button("Obtenir la météo") {
-                Task {
-                    let session = LanguageModelSession(
-                        tools: [WeatherTool()]  // Tableau de Tools
-                    )
-                    response = try await session.respond(
-                        to: "Quel temps fait-il à San Francisco ?"
-                    ).content
-                }
-            }
-            .buttonStyle(.borderedProminent)
-
-            Text(.init(response))
-                .padding()
-        }
-        .font(.title)
-    }
-}
-```
-
-<Info>
-Vous n'avez pas besoin de dire au prompt d'utiliser le Tool. Le modèle décide seul en fonction du `name` et de la `description` du Tool.
-</Info>
-
----
-
-## Tool avec sortie structurée
-
-La fonction `call` d'un Tool peut retourner n'importe quel type `@Generable` :
-
-```swift
-@Generable
-struct FoundBook: Codable {
-    let title: String
-    let author: String
-    let year: Int
-}
-
-struct BookTool: Tool {
-    let name = "findBook"
-    let description = "Trouve une recommandation de livre"
-
-    @Generable
-    struct Arguments: Codable {
-        // Arguments vides — le tool n'a pas besoin de paramètres
-    }
-
-    func call(arguments: Arguments) async throws -> FoundBook {
-        return FoundBook(
-            title: "Dune",
-            author: "Frank Herbert",
-            year: 1965
-        )
-    }
-}
-```
-
-### Réutiliser le type du Tool comme sortie du modèle
+Puis vous passez l'outil à la session :
 
 ```swift
 let session = LanguageModelSession(
-    tools: [BookTool()],
-    instructions: "Utilise le tool findBook pour recommander un livre."
+    tools: [WeatherTool()]
 )
 
-// Le modèle retourne un FoundBook typé
-let book = try await session.respond(
-    to: "Recommande un livre de SF",
-    generating: FoundBook.self  // Combiner Tool + Guided Generation
-).content
+let response = try await session.respond(
+    to: "Quel temps fait-il à Paris ?"
+)
 
-print(book.title)   // "Dune"
-print(book.author)  // "Frank Herbert"
-print(book.year)    // 1965
+print(response.content)
 ```
-
-<Warning>
-Sans `generating`, le modèle reformule la donnée du Tool en texte libre. Il peut omettre des champs (comme `year`). Combinez avec Guided Generation pour garder le contrôle sur le format.
-</Warning>
 
 ---
 
-## Gestion des erreurs de Tool
+## Ce qui fait un bon tool
 
-### Créer une erreur custom
+### Un nom explicite
 
-```swift
-enum VolcanicActivityError: LocalizedError {
-    case noDataAvailable(String)
+`getWeather` est préférable à `tool1`.
 
-    var errorDescription: String? {
-        switch self {
-        case .noDataAvailable(let location):
-            return "Pas de données pour '\(location)'. Régions disponibles : Hawaii, Italie, Islande, Japon."
-        }
-    }
+### Une description claire
 
-    var recoverySuggestion: String? {
-        switch self {
-        case .noDataAvailable:
-            return "Essayez une autre région ou un autre volcan."
-        }
-    }
-}
-```
+Le modèle lit la description. C'est elle qui l'aide à décider si l'outil est utile.
 
-### Lancer l'erreur depuis le Tool
+### Des arguments simples
 
-```swift
-struct VolcanicActivityTool: Tool {
-    let name = "getVolcanicActivity"
-    let description = "Obtient les données d'activité volcanique en temps réel"
-
-    @Generable
-    struct Arguments {
-        @Guide(description: "La région ou le nom du volcan")
-        let location: String
-    }
-
-    func call(arguments: Arguments) async throws -> String {
-        let data = ["hawaii": "Kilauea : Actif, flux de lave continu."]
-        guard let info = data[arguments.location.lowercased()] else {
-            throw VolcanicActivityError.noDataAvailable(arguments.location)
-        }
-        return info
-    }
-}
-```
-
-### Attraper l'erreur
-
-```swift
-do {
-    let result = try await session.respond(
-        to: "Activité volcanique en Antarctique ?"
-    )
-    response = result.content
-} catch let error as LanguageModelSession.ToolCallError {
-    errorMessage = "Tool '\(error.tool.name)' a échoué : \(error.underlyingError.localizedDescription)"
-} catch {
-    errorMessage = "Erreur inattendue : \(error.localizedDescription)"
-}
-```
-
-Le `ToolCallError` donne accès au nom du Tool qui a échoué et à l'erreur sous-jacente avec `recoverySuggestion` si implémentée.
+Plus les arguments sont clairs, plus le modèle les remplit correctement.
 
 ---
 
-## Idées de Tools
+## Tool et sortie structurée
+
+Si vous avez besoin d'un résultat fiable côté app, combinez tool et sortie structurée :
+
+```swift
+@Generable
+struct WeatherResult {
+    @Guide(description: "City name")
+    var city: String = ""
+
+    @Guide(description: "Current temperature in Celsius")
+    var temperature: Int = 0
+}
+```
+
+Le tool peut retourner une donnée structurée, et la session peut ensuite s'intégrer plus proprement dans votre UI.
+
+---
+
+## Bon cas d'usage dans une app Swift
 
 <CardGroup cols={2}>
-  <Card title="📅 Calendrier" icon="calendar">
-    Créer, modifier, chercher des événements via EventKit
+  <Card title="Calendrier" icon="calendar">
+    Lister ou créer des événements à partir d'une demande en langage naturel.
   </Card>
-  <Card title="✅ Rappels" icon="bell">
-    Ajouter des tâches ou rappels depuis le langage naturel
+  <Card title="Base locale" icon="database">
+    Chercher des enregistrements dans SwiftData ou SQLite.
   </Card>
-  <Card title="📧 Mail" icon="envelope">
-    Trier les emails, suggérer des actions (archiver, signaler)
+  <Card title="Rappels" icon="bell">
+    Transformer une demande en action applicative.
   </Card>
-  <Card title="🏠 HomeKit" icon="house">
-    Interpréter "baisse les lumières du salon" en actions HomeKit
-  </Card>
-  <Card title="💾 Base de données" icon="database">
-    Requêtes en langage naturel sur SQLite ou SwiftData
-  </Card>
-  <Card title="🛒 Shopping" icon="cart-shopping">
-    Assistant d'achat personnalisé avec vérification d'inventaire
+  <Card title="Données métier" icon="briefcase">
+    Interroger votre propre couche de service ou votre backend.
   </Card>
 </CardGroup>
 
 ---
 
-## Bonnes pratiques
+## Gérer les erreurs d'un tool
 
-- Écrivez des **descriptions claires** pour `name` et `description` — c'est ce que le modèle utilise pour décider quand appeler le Tool
-- Utilisez **`@Guide`** dans les Arguments pour aider le modèle à fournir les bonnes valeurs
-- **Combinez Tool + Guided Generation** pour garder le contrôle sur le format de sortie
-- Implémentez des **erreurs descriptives** avec `LocalizedError` et `recoverySuggestion`
-- Le modèle peut reformuler la sortie du Tool — ne vous attendez pas à un retour identique
-- Vous pouvez fournir **plusieurs Tools** au modèle via le tableau `tools:`
+Un tool peut échouer comme n'importe quelle fonction Swift. Utilisez des erreurs claires :
+
+```swift
+enum WeatherToolError: LocalizedError {
+    case cityNotFound
+
+    var errorDescription: String? {
+        switch self {
+        case .cityNotFound:
+            return "City not found."
+        }
+    }
+}
+```
+
+Et gérez ensuite `ToolCallError` côté session.
 
 ---
 
-<Card title="Retour à l'introduction" icon="house" href="/mlx/foundation-models/introduction">
-  Revenir à la vue d'ensemble Foundation Models →
-</Card>
+## Recommandations pratiques
+
+- gardez les tools ciblés
+- ne mélangez pas trop d'actions dans un seul tool
+- donnez des descriptions lisibles par un humain
+- combinez avec Guided Generation si l'app dépend d'un format stable
+
+Le bon niveau de granularité est souvent : un tool = une capacité claire.
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Guided Generation" icon="wand-magic-sparkles" href="/mlx/foundation-models/guided-generation">
+    Générer des objets Swift.
+  </Card>
+  <Card title="Erreurs & guardrails" icon="triangle-exclamation" href="/mlx/foundation-models/error-handling">
+    Gérer les erreurs du modèle et des tools.
+  </Card>
+</CardGroup>

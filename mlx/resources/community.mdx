@@ -1,119 +1,99 @@
 ---
-title: "Communauté & Ressources"
-description: "Reddit, Substack, newsletters et blogs pour suivre l'actualité MLX et des LLMs locaux"
+title: "Communauté & ressources"
+description: "Où suivre MLX, les LLMs locaux et les retours d'expérience utiles"
 icon: "users"
 ---
 
-Les meilleures sources pour rester à jour sur MLX, le fine-tuning sur Mac, et les LLMs locaux.
+Une bonne documentation officielle ne suffit pas toujours. Pour progresser sur MLX et les LLMs locaux, vous avez aussi besoin de retours terrain.
+
+L'idée n'est pas de tout lire. Il faut surtout savoir **où regarder selon la question que vous vous posez**.
 
 ---
 
-## Reddit
+## 1. Les sources officielles d'abord
 
-### r/LocalLLaMA — La Communauté Centrale
+Commencez toujours par :
 
-[reddit.com/r/LocalLLaMA](https://reddit.com/r/LocalLLaMA) — **266 000+ membres**
+- la documentation MLX
+- les repos `ml-explore`
+- la documentation Apple pour Foundation Models
 
-C'est **le** hub pour tout ce qui touche aux LLMs locaux. La communauté partage :
-- Des configs hardware et benchmarks
-- Des recommandations de modèles selon le hardware
-- Des tutoriels de fine-tuning
-- Des comparatifs de frameworks
-- Des cas d'usage créatifs
-
-**Thread incontournable** : ["Lessons learned so far: LoRA Fine tuning on MacBook Air with MLX"](https://reddit.com/r/LocalLLaMA/comments/18wabkc)
-
-Leçons clés du thread :
-1. Valider toujours les fichiers JSONL avant l'entraînement
-2. Fermer les apps gourmandes en RAM pendant l'entraînement
-3. Limiter les exemples à ~3500 tokens pour éviter les erreurs mémoire
-4. Vitesse attendue : 60-80 tokens/sec sur M1 MacBook Air 16GB
-5. MLX utilise vraiment le GPU Metal, contrairement à certaines configs llama.cpp
-
-### Autres subreddits utiles
-
-| Subreddit | Focus |
-|-----------|-------|
-| [r/MachineLearning](https://reddit.com/r/MachineLearning) | ML recherche et news |
-| [r/MLX](https://reddit.com/r/mlx) | Dédié MLX (plus petit) |
-| [r/AppleSilicon](https://reddit.com/r/AppleSilicon) | Hardware Apple Silicon |
+Ces sources répondent à la question "quelle est l'API actuelle ?"
 
 ---
 
-## Newsletters & Blogs
+## 2. La communauté pour les retours concrets
 
-### Simon Willison — La Pépite ⭐
+### Hugging Face
 
-[simonwillison.net](https://simonwillison.net) / [Substack](https://simonw.substack.com)
+Les cartes de modèles et les discussions autour de `mlx-community` sont utiles pour comprendre :
 
-Simon Willison est l'une des voix les plus suivies dans la communauté dev/IA. Il écrit régulièrement sur MLX et les LLMs locaux avec une approche très pratique.
+- quelles variantes existent
+- quel type d'usage vise un modèle
+- quels problèmes les autres rencontrent
 
-**Article phare** : ["Run LLMs on macOS using llm-mlx and Apple's MLX framework"](https://simonwillison.net/2025/Feb/15/llm-mlx/) — publié le 15 février 2025
+### GitHub Discussions
 
-Extraits de ses retours :
-- **Mistral-Small-24B** : "semble vraiment de qualité GPT-4 avec seulement ~12 GB de RAM — un excellent modèle par défaut"
-- **DeepSeek-R1-Distill-Qwen-32B-4bit** : "excellent pour le raisonnement, produit des blocs `<think>...</think>` fascinants"
-- **Llama 70B** : "nécessite 64 GB de RAM mais très capable — utiliser `llm chat` pour garder le modèle chargé"
+Les discussions de `ml-explore` sont souvent plus utiles qu'un article de blog quand vous cherchez :
 
-Simon maintient aussi le plugin [llm-mlx](https://github.com/simonw/llm-mlx) — une des façons les plus simples de gérer des modèles MLX.
+- un projet communautaire à suivre
+- une limitation connue
+- un exemple récent
 
----
+### Reddit et forums
 
-### MLOps Newsletter
+Les espaces comme `r/LocalLLaMA` sont utiles pour :
 
-Focus ingénierie ML, couvre régulièrement MLX parmi d'autres sujets. Plutôt orienté pratiques d'entreprise et MLOps.
+- des comparaisons de machines
+- des retours sur le coût mémoire
+- des recommandations de modèles
 
----
-
-## Lectures Incontournables
-
-### Guides pratiques (Medium / TDS)
-
-Ces articles (tous de 2025-2026) représentent la meilleure documentation pratique disponible :
-
-| Article | Auteur | Focus |
-|---------|--------|-------|
-| [LoRA Fine-Tuning On Your Apple Silicon MacBook](https://towardsdatascience.com/lora-fine-tuning-on-your-apple-silicon-macbook) | TDS | Guide complet LoRA + QLoRA avec benchmarks |
-| [Fine-tuning an LLM with MLX for Mac Users](https://medium.com/@manyi.yim/fine-tuning-an-llm-with-mlx-for-mac-users-0092565c8727) | Manyi Yim | Série complète (fév. 2026) |
-| [The Hitchhiker's Guide to Fine Tune LLMs on a Mac](https://medium.com/@neevdeb26/the-hitchhikers-guide-to-fine-tune-llms-on-a-mac-85174455457a) | Rhitam Deb | Guide pas-à-pas |
-| [Train Your Own LLM on MacBook](https://medium.com/@dummahajan/train-your-own-llm-on-macbook-a-15-minute-guide-with-mlx-6c6ed9ad036a) | Dushyant Mahajan | Guide 15 minutes |
-| [Fine-tuning LLMs with LoRA and MLX-LM](https://medium.com/@levchevajoana/fine-tuning-llms-with-lora-and-mlx-lm-c0b143642deb) | Joana Levtcheva | LoRA + MLX-LM |
-| [Deploying LLMs locally with MLX](https://towardsdatascience.com/deploying-llms-locally-with-apples-mlx-framework-2b3862049a93) | TDS | Déploiement local |
-| [Fine-tuning Open-Source LLMs with Apple's MLX](https://medium.com/@vishnu_73501/fine-tuning-open-source-llms-with-apples-mlx-framework-a-comprehensive-guide-490a4c4735a0) | Vishnu N C | Guide complet |
+Traitez-les comme des retours d'expérience, pas comme une documentation normative.
 
 ---
 
-## Ressources Officielles Apple
+## 3. Les auteurs et blogs utiles
 
-<CardGroup cols={2}>
-  <Card title="WWDC25 — Explore LLMs with MLX" icon="video" href="https://developer.apple.com/videos/play/wwdc2025/298">
-    Inférence, fine-tuning, quantization expliqués par Apple
-  </Card>
-  <Card title="WWDC25 — Get started with MLX" icon="video" href="https://developer.apple.com/videos/play/wwdc2025/315">
-    Introduction MLX pour développeurs
-  </Card>
-  <Card title="Apple ML Research — M5 + MLX" icon="microscope" href="https://machinelearning.apple.com/research/exploring-llms-mlx-m5">
-    Neural Accelerators M5 et performances LLM
-  </Card>
-  <Card title="Documentation MLX" icon="book" href="https://ml-explore.github.io/mlx">
-    Référence technique complète
-  </Card>
-</CardGroup>
+Quelques profils publient des retours pratiques faciles à exploiter, en particulier sur les LLMs locaux et l'écosystème Apple.
+
+Le point important n'est pas de suivre une personne précise, mais d'adopter une règle simple :
+
+- utilisez les blogs pour comprendre un workflow
+- revenez ensuite au repo officiel pour vérifier les commandes exactes
 
 ---
 
-## Recherche Académique
+## Comment utiliser ces ressources intelligemment
 
-**[Production-Grade Local LLM Inference on Apple Silicon](https://arxiv.org/abs/2511.05502)** (arxiv, 2025)
+### Si vous cherchez une API ou une signature exacte
 
-Étude comparative rigoureuse de MLX, MLC-LLM, Ollama, llama.cpp et PyTorch MPS sur Apple Silicon. Résultats clés :
-- MLX a le throughput le plus élevé
-- MLC-LLM offre le TTFT le plus court sur certains contextes
-- llama.cpp est le plus efficace pour les use-cases légers
-- Ollama est optimal pour l'ergonomie développeur
+Allez au repo officiel ou à la doc officielle.
+
+### Si vous cherchez un retour d'expérience
+
+Lisez un billet de blog, une discussion GitHub ou un fil communautaire.
+
+### Si vous comparez des modèles
+
+Regardez les model cards et testez localement. Les classements "universels" vieillissent vite.
 
 ---
 
-<Card title="Repos Officiels Apple" icon="github" href="/mlx/resources/official-repos">
-  La liste complète des repos ml-explore à suivre →
+## La règle qui évite le plus d'erreurs
+
+Quand une ressource externe vous donne :
+
+- un benchmark
+- une vitesse
+- une consommation mémoire
+- une recommandation de modèle
+
+considérez cela comme **contextuel**, pas comme une vérité générale.
+
+Votre machine, votre dataset et votre produit restent le vrai terrain de validation.
+
+---
+
+<Card title="Repos officiels Apple" icon="github" href="/mlx/resources/official-repos">
+  Revenir aux sources stables de l'écosystème MLX.
 </Card>

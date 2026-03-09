@@ -1,215 +1,118 @@
 ---
 title: "Quantification des modèles"
-description: "Convertir et quantifier des modèles pour MLX : 4-bit, 8-bit, et optimisation mémoire"
+description: "Réduire la taille d'un modèle pour le rendre plus facile à exécuter avec MLX"
 icon: "compress"
 ---
 
-La quantification réduit la taille d'un modèle en utilisant moins de bits pour représenter chaque poids. Un modèle 7B en 16-bit occupe ~14 GB de RAM, mais seulement ~4 GB en 4-bit — rendant possible l'inférence sur un MacBook Air avec 8 GB de RAM.
+La quantification consiste à stocker les poids d'un modèle avec moins de bits. Le but est simple : **réduire la mémoire nécessaire**, souvent avec une perte de qualité acceptable.
+
+Pour beaucoup de workflows MLX, la quantification est ce qui rend un modèle réellement exploitable sur un Mac personnel.
 
 ---
 
-## Pourquoi quantifier ?
+## Pourquoi quantifier
 
-| Précision | RAM pour 7B | RAM pour 70B | Qualité | Cas d'usage |
-|-----------|-------------|-------------|---------|-------------|
-| **16-bit** (FP16) | ~14 GB | ~140 GB | Référence | Recherche, évaluation |
-| **8-bit** (INT8) | ~7 GB | ~70 GB | ~99% du 16-bit | Bon compromis |
-| **4-bit** (INT4) | ~4 GB | ~40 GB | ~95-97% du 16-bit | Production sur Mac |
-| **3-bit** | ~3 GB | ~30 GB | Dégradation notable | Modèles très gros |
+Sans quantification, un modèle peut être trop lourd pour votre machine. Avec une version quantifiée, vous pouvez :
+
+- charger le modèle plus facilement
+- réduire la pression sur la mémoire unifiée
+- tester des modèles plus grands
+- accélérer le prototypage local
 
 <Info>
-La quantification 4-bit est le standard pour la communauté MLX. La perte de qualité est minime pour la plupart des tâches, et le gain en mémoire est considérable.
+Le `4bit` est souvent le meilleur point d'équilibre pour démarrer. Il réduit fortement la mémoire sans compliquer votre workflow.
 </Info>
 
 ---
 
-## Convertir un modèle avec mlx-lm
+## Les niveaux de quantification les plus courants
 
-### Installation
+| Niveau | Quand l'utiliser |
+|--------|------------------|
+| `8bit` | Vous privilégiez la qualité et vous avez de la marge mémoire |
+| `4bit` | Le choix par défaut pour la plupart des usages locaux |
+| `3bit` | Seulement si la mémoire devient la contrainte principale |
 
-```bash
-pip install mlx-lm
-```
+Ne cherchez pas le réglage parfait dès le début. Essayez d'abord `4bit`, puis comparez seulement si vous voyez un vrai problème.
 
-### Conversion simple (Hugging Face → MLX 4-bit)
+---
+
+## Convertir un modèle avec `mlx_lm.convert`
+
+### Conversion locale en 4-bit
 
 ```bash
 mlx_lm.convert \
   --hf-path mistralai/Mistral-7B-Instruct-v0.3 \
   -q \
   --q-bits 4 \
-  --upload-repo votre-username/Mistral-7B-Instruct-v0.3-4bit-mlx
+  --mlx-path ./models/mistral-7b-4bit
 ```
 
-### Paramètres de conversion
-
-| Paramètre | Description | Défaut |
-|-----------|-------------|--------|
-| `--hf-path` | Modèle source sur Hugging Face | (requis) |
-| `-q` | Activer la quantification | Non |
-| `--q-bits` | Nombre de bits (3, 4, 6, 8) | 4 |
-| `--q-group-size` | Taille du groupe de quantification | 64 |
-| `--mlx-path` | Dossier de sortie local | `mlx_model` |
-| `--upload-repo` | Publier directement sur Hugging Face | — |
-| `--dtype` | Type de données (float16, bfloat16) | float16 |
-
-### Conversion locale (sans upload)
+### Utiliser ensuite le modèle converti
 
 ```bash
-mlx_lm.convert \
-  --hf-path meta-llama/Llama-3.1-8B-Instruct \
-  -q \
-  --q-bits 4 \
-  --mlx-path ./models/llama-3.1-8b-4bit
-```
-
-### Utiliser le modèle converti
-
-```bash
-# Depuis le dossier local
 mlx_lm.generate \
-  --model ./models/llama-3.1-8b-4bit \
-  --prompt "Bonjour, comment ça va ?"
-```
-
-```python
-from mlx_lm import load, generate
-
-model, tokenizer = load("./models/llama-3.1-8b-4bit")
-response = generate(model, tokenizer, prompt="Bonjour !", max_tokens=100)
+  --model ./models/mistral-7b-4bit \
+  --prompt "Explique la quantification en deux phrases."
 ```
 
 ---
 
-## Conversion via l'API Python
+## Les options à connaître
 
-Pour un contrôle plus fin ou une intégration dans un pipeline :
-
-```python
-from mlx_lm import convert
-
-convert(
-    hf_path="mistralai/Mistral-7B-Instruct-v0.3",
-    mlx_path="./my-model-4bit",
-    quantize=True,
-    q_bits=4,
-    q_group_size=64,
-)
-```
+| Option | Rôle |
+|--------|------|
+| `--hf-path` | Modèle source sur Hugging Face |
+| `-q` | Active la quantification |
+| `--q-bits` | Choisit le niveau de quantification |
+| `--mlx-path` | Dossier de sortie local |
+| `--upload-repo` | Publie directement la conversion sur Hugging Face |
 
 ---
 
-## Choisir le bon niveau de quantification
+## Faut-il convertir ou utiliser MLX Community ?
 
-### 4-bit (recommandé)
+Utilisez un modèle déjà publié dans `mlx-community` si c'est possible. Convertissez vous-même seulement quand vous avez une raison claire :
 
-Le meilleur compromis taille/qualité. C'est le standard de la communauté MLX Community sur Hugging Face.
+- modèle absent
+- variante spécifique
+- besoin de publier votre propre build
 
-```bash
-mlx_lm.convert --hf-path ... -q --q-bits 4
-```
-
-### 8-bit (qualité maximale)
-
-Proche du modèle original, mais consomme deux fois plus de RAM que le 4-bit.
-
-```bash
-mlx_lm.convert --hf-path ... -q --q-bits 8
-```
-
-### 3-bit (mémoire minimale)
-
-Utile uniquement pour faire tourner de très gros modèles (70B+) sur des machines avec RAM limitée.
-
-```bash
-mlx_lm.convert --hf-path ... -q --q-bits 3
-```
+Cette règle vous évite beaucoup de travail inutile.
 
 ---
 
-## Group size : le réglage fin
+## Vérifier rapidement que la conversion est correcte
 
-Le `q-group-size` contrôle la granularité de la quantification. Un groupe plus petit = meilleure qualité mais fichier légèrement plus gros.
+Après conversion, posez quelques questions simples au modèle :
 
-| Group size | Qualité | Taille fichier |
-|-----------|---------|---------------|
-| 32 | Meilleure | Plus gros |
-| 64 | Bon compromis (défaut) | Standard |
-| 128 | Légèrement moindre | Plus compact |
+- suit-il correctement les consignes ?
+- la sortie est-elle cohérente ?
+- le chargement tient-il en mémoire sur votre machine ?
 
-```bash
-# Qualité maximale en 4-bit
-mlx_lm.convert --hf-path ... -q --q-bits 4 --q-group-size 32
-```
+N'essayez pas d'évaluer la qualité avec un seul prompt, mais vérifiez au moins que le modèle reste exploitable pour votre cas d'usage.
 
 ---
 
-## Formats de modèles : GGUF vs MLX vs SafeTensors
+## MLX n'utilise pas le format GGUF
 
-| Format | Framework | Avantages |
-|--------|-----------|-----------|
-| **MLX (SafeTensors)** | MLX, mlx-lm | Natif Apple Silicon, performances optimales |
-| **GGUF** | llama.cpp, Ollama | Universel, fonctionne partout |
-| **CoreML (.mlpackage)** | CoreML, iOS | Neural Engine, apps iOS |
-| **SafeTensors (HF)** | PyTorch, Transformers | Format source, non quantifié |
+Si vous venez de `llama.cpp` ou d'Ollama, gardez ce point en tête :
+
+- `GGUF` est le format courant côté `llama.cpp`
+- MLX attend un format compatible MLX
 
 <Warning>
-MLX ne lit pas les fichiers GGUF. Si vous trouvez un modèle au format GGUF sur Hugging Face, cherchez plutôt la version MLX sur [mlx-community](https://huggingface.co/mlx-community), ou convertissez le modèle source (non-GGUF) avec `mlx_lm.convert`.
+Ne partez pas d'un fichier `GGUF` si votre objectif est MLX. Cherchez d'abord la version source sur Hugging Face, puis convertissez-la avec `mlx_lm.convert`, ou utilisez une variante déjà publiée dans `mlx-community`.
 </Warning>
 
 ---
 
-## Vérifier la qualité après quantification
-
-Comparez les sorties avant et après quantification :
-
-```python
-from mlx_lm import load, generate
-
-# Modèle original
-model_fp16, tok = load("mistralai/Mistral-7B-Instruct-v0.3")
-# Modèle quantifié
-model_4bit, tok = load("mlx-community/Mistral-7B-Instruct-v0.3-4bit")
-
-prompt = "Explique la relativité générale en termes simples."
-
-print("=== FP16 ===")
-print(generate(model_fp16, tok, prompt=prompt, max_tokens=200))
-
-print("\n=== 4-bit ===")
-print(generate(model_4bit, tok, prompt=prompt, max_tokens=200))
-```
-
-Pour la plupart des tâches (chat, résumé, extraction), la différence est imperceptible en 4-bit.
-
----
-
-## Publier sur Hugging Face
-
-Partagez vos conversions avec la communauté :
-
-```bash
-# Login Hugging Face
-huggingface-cli login
-
-# Convertir et publier en une commande
-mlx_lm.convert \
-  --hf-path mistralai/Mistral-7B-Instruct-v0.3 \
-  -q --q-bits 4 \
-  --upload-repo votre-username/Mistral-7B-v0.3-4bit-mlx
-```
-
-<Info>
-La communauté [mlx-community](https://huggingface.co/mlx-community) sur Hugging Face propose déjà des milliers de modèles pré-quantifiés. Vérifiez si le modèle que vous voulez n'existe pas déjà avant de le convertir vous-même.
-</Info>
-
----
-
 <CardGroup cols={2}>
-  <Card title="Modèles MLX Community" icon="database" href="/mlx/models/mlx-community">
-    Modèles prêts à l'emploi sur Hugging Face →
+  <Card title="MLX Community" icon="users" href="/mlx/models/mlx-community">
+    Trouver un modèle déjà préparé.
   </Card>
-  <Card title="Fine-tuning LoRA" icon="sliders" href="/mlx/fine-tuning/lora-guide">
-    Fine-tuner après quantification →
+  <Card title="QLoRA" icon="microchip" href="/mlx/fine-tuning/qlora-guide">
+    Réutiliser un modèle quantifié pour le fine-tuning.
   </Card>
 </CardGroup>

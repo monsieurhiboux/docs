@@ -1,285 +1,177 @@
 ---
-title: "Session & Cycle de vie"
-description: "Gérer le LanguageModelSession, le transcript, le prewarming et les bonnes pratiques de cycle de vie"
+title: "Session & cycle de vie"
+description: "Créer, réutiliser et réinitialiser un LanguageModelSession au bon moment"
 icon: "arrows-rotate"
 ---
 
-Le `LanguageModelSession` est l'objet central du framework FoundationModels. Cette page couvre sa création, sa gestion, le prewarming, le transcript et les pièges courants.
+Avec Foundation Models, une session représente un contexte de génération. Le modèle se souvient de ce qui s'est passé dans cette session, ainsi que des instructions et des tools que vous lui avez donnés.
+
+Le bon pattern est simple : **une session doit rester ciblée**.
 
 ---
 
-## Créer une Session
-
-```swift
-// Session basique
-let session = LanguageModelSession()
-
-// Session avec instructions
-let session = LanguageModelSession(
-    instructions: "Tu es un assistant concis."
-)
-
-// Session avec instructions + tools
-let session = LanguageModelSession(
-    instructions: "Tu es un assistant de voyage.",
-    tools: [WeatherTool(), TranslationTool()]
-)
-```
-
-<Warning>
-Les instructions et les tools sont **immutables** une fois la session créée. Pour les modifier, créez une nouvelle session.
-</Warning>
-
----
-
-## Tokens et Context Window
-
-Le `LanguageModelSession` a une limite de **4 096 tokens** (environ 3 000 mots). Cette fenêtre inclut :
-
-```
-┌─────────────────────────────────────────────┐
-│              Context Window (4096 tokens)    │
-│                                             │
-│  ┌─────────────────────────────┐            │
-│  │ Instructions (envoyées à    │ ~68 tokens │
-│  │ chaque prompt)              │            │
-│  ├─────────────────────────────┤            │
-│  │ Historique des conversations│ cumulatif  │
-│  │ précédentes (prompt+réponse)│            │
-│  ├─────────────────────────────┤            │
-│  │ Prompt actuel               │ ~27 tokens │
-│  ├─────────────────────────────┤            │
-│  │ Réponse générée             │ ~462 tokens│
-│  └─────────────────────────────┘            │
-└─────────────────────────────────────────────┘
-```
-
-Les conversations sont **cumulatives** : chaque nouvel échange ajoute des tokens au total. Quand la limite est atteinte, une erreur `exceededContextWindowSize` est levée.
-
-Pour réinitialiser, créez simplement une nouvelle `LanguageModelSession`.
-
----
-
-## Le Transcript (Historique)
-
-Chaque session maintient un historique accessible via `session.transcript` :
-
-```swift
-struct ChatView: View {
-    @State private var session = LanguageModelSession()
-    @State private var currentPrompt = ""
-
-    var body: some View {
-        VStack {
-            ScrollView {
-                ForEach(session.transcript) { entry in
-                    Text(getString(for: entry))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.bottom)
-                }
-            }
-
-            HStack {
-                TextField("Prompt...", text: $currentPrompt)
-                    .textFieldStyle(.roundedBorder)
-
-                Button("Envoyer") {
-                    Task {
-                        _ = try? await session.respond(to: currentPrompt)
-                        currentPrompt = ""
-                    }
-                }
-                .buttonStyle(.borderedProminent)
-            }
-        }
-        .padding()
-    }
-
-    private func getString(for entry: Transcript.Entry) -> String {
-        switch entry {
-        case .prompt(let prompt):
-            return "Vous : " + prompt.segments
-                .map { $0.description }
-                .joined(separator: " ")
-        case .response(let response):
-            return "IA : " + response.segments
-                .map { $0.description }
-                .joined(separator: " ")
-        default:
-            return "Autre type d'entrée"
-        }
-    }
-}
-```
-
-La réponse est automatiquement ajoutée au transcript dès qu'elle est générée — pas besoin de la stocker manuellement.
-
----
-
-## Prewarming (Préchauffage)
-
-Le premier appel au modèle subit un "cold start" (chargement initial). Le **prewarming** charge les ressources en mémoire en avance.
-
-### Prewarming simple
-
-```swift
-struct MyFeatureView: View {
-    @State private var session = LanguageModelSession()
-    @State private var response = ""
-
-    var body: some View {
-        VStack {
-            Button("Générer") {
-                Task {
-                    response = try await session.respond(
-                        to: "Un fun fact rapide"
-                    ).content
-                }
-            }
-            .buttonStyle(.borderedProminent)
-
-            Text(response)
-        }
-        .onAppear {
-            session.prewarm()  // Charge les ressources à l'avance
-        }
-    }
-}
-```
-
-### Prewarming avec prompt prévisible
-
-Si vous connaissez le prompt à l'avance, le modèle peut aller encore plus loin :
-
-```swift
-@State private var prompt = Prompt("Génère 5 titres de SF")
-@State private var session = LanguageModelSession()
-
-var body: some View {
-    // ...
-    .onAppear {
-        session.prewarm(promptPrefix: prompt)
-    }
-}
-```
-
-### Quand prechauffer ?
-
-| Moment | Cas d'usage |
-|--------|-------------|
-| `onAppear` de la vue | La vue va utiliser le modèle de manière certaine |
-| Focus du TextField | L'utilisateur s'apprête à écrire un prompt |
-| Lancement de l'app | Feature IA essentielle à l'expérience |
-
-<Warning>
-Le prewarming n'est **pas garanti**. Les ressources système peuvent empêcher le chargement. Gérez toujours le cas où le modèle n'est pas prêt.
-</Warning>
-
----
-
-## Indicateur d'activité (isResponding)
-
-```swift
-struct SmartButton: View {
-    @State private var response = ""
-    @State private var session = LanguageModelSession()
-
-    var body: some View {
-        VStack {
-            Button("Générer des idées") {
-                Task {
-                    response = try await session.respond(
-                        to: "5 idées d'apps innovantes"
-                    ).content
-                }
-            }
-            .buttonStyle(.borderedProminent)
-            .disabled(session.isResponding)
-
-            Text(.init(response))
-                .padding()
-        }
-        .overlay {
-            if session.isResponding {
-                ProgressView("Génération en cours...")
-            }
-        }
-    }
-}
-```
-
-`session.isResponding` est un booléen observable qui indique si le modèle traite un prompt.
-
----
-
-## Anti-pattern : Session globale dans l'Environment
-
-```swift
-// ❌ NE FAITES PAS ÇA
-@main
-struct MyApp: App {
-    @State private var session = LanguageModelSession()
-
-    var body: some Scene {
-        WindowGroup {
-            HomeView()
-                .environment(session)
-        }
-    }
-}
-```
-
-Pourquoi c'est une mauvaise idée : le `LanguageModelSession` est conçu pour une conversation ciblée, pas pour servir d'entrepôt global. Une session partagée dans toute l'app accumule les tokens de toutes les vues — la fenêtre de 4 096 tokens se remplit rapidement avec des conversations sans lien les unes avec les autres, et les anciennes réponses colorent les nouvelles de façon involontaire.
-
-Autre contrainte importante : les instructions et les tools sont **fixés à la création**. Un `RecipeView` et un `TravelView` n'ont pas besoin des mêmes instructions ; les partager dans une session commune, c'est se priver de la capacité de personnaliser chaque feature. De plus, une même session ne peut traiter qu'un prompt à la fois — si deux vues l'utilisent simultanément, l'une d'elles recevra une erreur `concurrentRequests`.
-
-La bonne approche : **une session par feature ou par vue**.
-
-```swift
-// ✅ APPROCHE CORRECTE
-struct RecipeView: View {
-    @State private var session = LanguageModelSession(
-        instructions: "Tu es un chef cuisinier."
-    )
-    // Session dédiée à cette feature
-}
-
-struct TravelView: View {
-    @State private var session = LanguageModelSession(
-        instructions: "Tu es un guide de voyage."
-    )
-    // Session indépendante
-}
-```
-
----
-
-## Debugging avec Xcode Playgrounds
-
-Testez vos prompts rapidement sans compiler toute l'app :
+## Créer une session
 
 ```swift
 import FoundationModels
-import Playgrounds
 
-#Playground {
-    let session = LanguageModelSession()
-    let response = try await session.respond(
-        to: "Quelle est la capitale de l'Allemagne ?"
+let session = LanguageModelSession()
+```
+
+Ou avec un cadrage plus précis :
+
+```swift
+let session = LanguageModelSession(
+    instructions: """
+    You help intermediate Swift developers.
+    Keep answers concise.
+    """
+)
+```
+
+Ou encore avec des tools :
+
+```swift
+let session = LanguageModelSession(
+    tools: [WeatherTool()]
+)
+```
+
+---
+
+## Quand réutiliser une session
+
+Réutilisez la même session si :
+
+- vous êtes dans une conversation multi-tours
+- la tâche reste la même
+- le contexte précédent est encore utile
+
+Exemple : un chat ou un assistant attaché à une feature précise.
+
+---
+
+## Quand créer une nouvelle session
+
+Créez une nouvelle session si :
+
+- vous changez de tâche
+- vous changez de rôle ou d'instructions
+- le contexte précédent n'aide plus
+- la conversation est devenue trop longue
+
+Exemple : ne réutilisez pas la même session pour une aide culinaire puis une analyse de ticket produit.
+
+---
+
+## Un bon pattern avec un view model
+
+```swift
+import FoundationModels
+import Observation
+
+@Observable
+@MainActor
+final class ChatViewModel {
+    var messages: [String] = []
+    var errorMessage: String?
+    var isResponding: Bool { session.isResponding }
+
+    private var session = LanguageModelSession(
+        instructions: "You are a concise assistant."
     )
-    print(response.content)
+
+    func send(_ prompt: String) async {
+        errorMessage = nil
+
+        do {
+            let response = try await session.respond(to: prompt)
+            messages.append("Vous : \(prompt)")
+            messages.append("IA : \(response.content)")
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func resetConversation() {
+        session = LanguageModelSession(
+            instructions: "You are a concise assistant."
+        )
+        messages.removeAll()
+    }
 }
 ```
 
-Activez le canvas dans Xcode via l'icône en haut à droite de l'éditeur pour voir le résultat en temps réel.
+Cette structure vous donne un cycle de vie clair et évite une session globale trop floue.
+
+---
+
+## `transcript`
+
+La session maintient un transcript. Il peut être utile pour :
+
+- inspecter la conversation
+- debugger le comportement
+- comprendre pourquoi une réponse a été influencée par le contexte précédent
+
+Gardez en tête que plus le transcript grossit, plus la session devient coûteuse en contexte.
+
+---
+
+## `isResponding`
+
+La propriété `isResponding` est la façon la plus simple de protéger votre UI contre les doubles envois :
+
+```swift
+Button("Envoyer") {
+    Task { await viewModel.send(userPrompt) }
+}
+.disabled(viewModel.isResponding)
+```
+
+Dans votre code produit, vous l'utiliserez souvent via un view model plutôt que directement depuis la vue.
+
+---
+
+## `prewarm`
+
+Le prewarming sert à réduire le coût du premier appel quand vous savez qu'une fonctionnalité IA va être utilisée.
+
+```swift
+let session = LanguageModelSession()
+session.prewarm()
+```
+
+Vous pouvez l'utiliser :
+
+- quand une vue IA va s'ouvrir
+- quand l'utilisateur se prépare à interagir
+- quand la feature fait partie du parcours principal
+
+Ne prewarmez pas partout par défaut. Faites-le seulement pour les flows qui le justifient.
+
+---
+
+## Le piège le plus courant
+
+Le mauvais réflexe consiste à partager une seule session dans toute l'app. Cela crée vite :
+
+- un contexte pollué
+- des responsabilités floues
+- des collisions entre features
+
+Préférez :
+
+- une session par conversation
+- ou une session par feature clairement identifiée
 
 ---
 
 <CardGroup cols={2}>
-  <Card title="Gestion des erreurs" icon="triangle-exclamation" href="/mlx/foundation-models/error-handling">
-    Gérer les erreurs et guardrails →
-  </Card>
   <Card title="Streaming & UX" icon="bolt" href="/mlx/foundation-models/streaming-ux">
-    Créer des interfaces réactives →
+    Afficher proprement les réponses.
+  </Card>
+  <Card title="Patterns d'architecture" icon="sitemap" href="/mlx/foundation-models/architecture-patterns">
+    Transformer ces principes en architecture d'app.
   </Card>
 </CardGroup>

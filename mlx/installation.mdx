@@ -1,157 +1,150 @@
 ---
 title: "Installation & Setup"
-description: "Configurer MLX et mlx-lm sur votre Mac Apple Silicon en moins de 5 minutes"
+description: "Installer MLX et mlx-lm sur votre Mac pour travailler avec des modèles locaux"
 icon: "wrench"
 ---
 
-## Prérequis
+## Avant de commencer
+
+Ce guide cible le cas le plus simple et le plus courant :
+
+- un Mac avec Apple Silicon
+- un Python natif ARM
+- un environnement virtuel dédié au projet
 
 <Warning>
-MLX fonctionne **uniquement** sur des Macs avec Apple Silicon (M1, M2, M3, M4, M5) sous **macOS 14.0 ou supérieur**.
+Si votre terminal ou votre Python tourne sous Rosetta, vous risquez des erreurs de dépendances ou des performances incohérentes. Vérifiez d'abord votre environnement.
 </Warning>
 
-Avant de commencer, vérifiez :
-- macOS 14.0+ (Sonoma ou supérieur)
-- Python 3.9+ (version native ARM, pas Rosetta)
-- Puce Apple Silicon (M1/M2/M3/M4/M5)
-
-### Vérifier votre architecture Python
+### Vérifier l'architecture de Python
 
 ```bash
-python -c "import platform; print(platform.processor())"
+python -c "import platform; print(platform.machine())"
 ```
 
-La sortie doit être `arm`. Si vous voyez `i386` sur un Mac M-series, vous utilisez Python sous Rosetta — il faut passer à une version native.
+Sur Apple Silicon, vous voulez voir `arm64`.
 
-<Tip>
-Installez Python natif ARM via [Conda](https://docs.conda.io/en/latest/miniconda.html) ou [Homebrew](https://brew.sh) :
-```bash
-brew install python@3.11
-```
-</Tip>
+Si ce n'est pas le cas, installez un Python natif via Homebrew, `pyenv` ou le site officiel de Python, puis recréez votre environnement virtuel.
 
 ---
 
-## Installation de MLX
-
-### Option 1 : Installation simple avec pip
+## Installer MLX dans un environnement propre
 
 ```bash
-pip install mlx
-```
-
-C'est tout. Une seule ligne suffit pour le framework core.
-
-### Option 2 : Environnement virtuel (recommandé)
-
-```bash
-# Créer un environnement virtuel
 python -m venv .venv
 source .venv/bin/activate
-
-# Installer MLX core
+python -m pip install --upgrade pip
 pip install mlx
-
-# Vérifier l'installation
-python -c "import mlx.core as mx; print(mx.array([1,2,3]))"
 ```
+
+### Vérifier l'installation
+
+```bash
+python -c "import mlx.core as mx; print(mx.array([1, 2, 3]))"
+```
+
+Si vous voyez un tableau s'afficher, MLX est installé correctement.
 
 ---
 
-## Installation de mlx-lm
+## Installer `mlx-lm`
 
-`mlx-lm` est le package dédié aux Large Language Models. C'est lui qui vous permet de faire tourner et fine-tuner des LLMs.
+`mlx-lm` ajoute les outils orientés LLM :
 
-```bash
-pip install mlx-lm
-```
-
-### Installation complète (recommandée pour le fine-tuning)
+- génération de texte
+- chargement de modèles depuis Hugging Face
+- conversion et quantification
+- fine-tuning LoRA et QLoRA
+- serveur local compatible API
 
 ```bash
 pip install -U mlx-lm
+```
+
+Si vous prévoyez de télécharger, publier ou manipuler des datasets, ajoutez aussi :
+
+```bash
 pip install pandas huggingface_hub "huggingface_hub[cli]"
 ```
 
 ---
 
-## Vérification de l'installation
+## Premier test avec un modèle local
 
 ```bash
-# Tester mlx-lm en générant du texte
 mlx_lm.generate \
   --model mlx-community/Llama-3.2-3B-Instruct-4bit \
-  --prompt "Bonjour ! Explique-moi MLX en une phrase."
+  --prompt "Explique MLX en deux phrases simples."
 ```
 
-<Note>
-Le premier lancement téléchargera le modèle depuis Hugging Face (~2GB pour Llama 3.2 3B 4-bit). Les téléchargements suivants utiliseront le cache local (`~/.cache/huggingface/hub/`).
-</Note>
+Au premier lancement, `mlx-lm` télécharge le modèle depuis Hugging Face puis le réutilise depuis le cache local.
+
+<Tip>
+Pour découvrir MLX, commencez avec un modèle compact en `4bit`. Le téléchargement est plus léger et vous évitez les erreurs mémoire sur une machine modeste.
+</Tip>
 
 ---
 
-## Connexion à Hugging Face (optionnel mais recommandé)
+## Connexion à Hugging Face
 
-Pour accéder aux modèles privés ou uploader vos propres modèles fine-tunés :
+Vous pouvez travailler sans compte pour beaucoup de modèles publics. En revanche, connectez-vous si vous voulez :
+
+- accéder à un dépôt privé
+- publier un modèle converti
+- partager un modèle fine-tuné
 
 ```bash
 huggingface-cli login
 ```
 
-Entrez votre token HF (disponible sur [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens)).
-
 ---
 
-## Installation MLX Swift (pour les apps iOS/macOS)
+## Installer les outils Swift
 
-Si vous développez des apps Swift avec MLX :
+Si votre objectif principal est une app Swift qui charge un modèle MLX, ajoutez le package `mlx-swift` dans Xcode ou via Swift Package Manager :
 
 ```swift
-// Package.swift
 dependencies: [
     .package(
         url: "https://github.com/ml-explore/mlx-swift",
-        from: "0.21.0"
+        branch: "main"
     )
 ]
 ```
 
-Ou via Xcode : **File → Add Package Dependencies** → entrez l'URL du repo.
+<Info>
+Si vous voulez utiliser le modèle système Apple dans une app Swift, vous n'avez pas besoin d'installer MLX. Regardez plutôt la section [Foundation Models](/mlx/foundation-models/introduction).
+</Info>
 
 ---
 
-## Résolution des problèmes courants
+## Problèmes fréquents
 
 <AccordionGroup>
-  <Accordion title="pip cannot find a matching distribution" icon="triangle-exclamation">
-    Vous utilisez probablement Python en mode Rosetta. Vérifiez avec :
-    ```bash
-    python -c "import platform; print(platform.processor())"
-    # Doit afficher 'arm', pas 'i386'
-    ```
-    Solution : réinstallez Python via Homebrew ou Conda en natif ARM.
+  <Accordion title="`pip` ne trouve pas le package" icon="triangle-exclamation">
+    Vérifiez d'abord la version de Python et son architecture. Le problème vient souvent d'un Python non compatible ou lancé sous Rosetta.
   </Accordion>
 
-  <Accordion title="Module 'mlx' not found" icon="triangle-exclamation">
-    Assurez-vous d'être dans le bon environnement virtuel :
+  <Accordion title="`ModuleNotFoundError: No module named mlx`" icon="triangle-exclamation">
+    Activez le bon environnement virtuel avant d'exécuter vos scripts :
+
     ```bash
     source .venv/bin/activate
-    pip show mlx  # vérifier l'installation
+    pip show mlx
     ```
   </Accordion>
 
-  <Accordion title="Erreur mémoire lors du chargement d'un modèle" icon="triangle-exclamation">
-    Fermez les autres applications (Firefox, Chrome, etc.) pour libérer de la RAM unifiée.
-    Utilisez des modèles quantisés (4-bit) pour réduire l'empreinte mémoire :
-    ```bash
-    # Préférer les modèles 4-bit de mlx-community
-    mlx_lm.generate --model mlx-community/Mistral-7B-Instruct-v0.3-4bit ...
-    ```
+  <Accordion title="Le chargement d'un modèle échoue par manque de mémoire" icon="triangle-exclamation">
+    Commencez avec un modèle plus petit ou déjà quantifié en `4bit`. Fermez aussi les applications qui consomment beaucoup de mémoire unifiée.
+  </Accordion>
+
+  <Accordion title="Je développe en Swift et je ne sais pas par où commencer" icon="circle-question">
+    Si vous voulez un modèle Apple prêt à l'emploi dans une app Swift, partez sur Foundation Models. Si vous voulez embarquer un modèle open weight précis, regardez `mlx-swift` ou une intégration HTTP vers un serveur local.
   </Accordion>
 </AccordionGroup>
 
 ---
 
-<Card title="Prochaine étape : Quick Start" icon="rocket" href="/mlx/quickstart">
-  Faites tourner votre premier LLM et explorez les fonctionnalités de mlx-lm →
+<Card title="Étape suivante : prise en main rapide" icon="rocket" href="/mlx/quickstart">
+  Générer votre premier texte avec `mlx-lm`.
 </Card>

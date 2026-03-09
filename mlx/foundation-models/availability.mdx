@@ -1,215 +1,150 @@
 ---
 title: "Disponibilité du modèle"
-description: "Vérifier les prérequis et la disponibilité d'Apple Intelligence sur l'appareil"
+description: "Vérifier proprement si le modèle système Apple est utilisable"
 icon: "circle-check"
 ---
 
-Avant d'utiliser le framework FoundationModels, vous devez vérifier que le modèle est disponible sur l'appareil de l'utilisateur. Cette page couvre les prérequis système et les vérifications à implémenter.
+La disponibilité n'est pas un détail. Avec Foundation Models, votre app peut se lancer sur des appareils où le modèle :
+
+- n'est pas pris en charge
+- n'est pas activé
+- n'est pas prêt au moment où vous l'appelez
+
+Le bon réflexe n'est donc pas de maintenir une liste d'appareils à la main. Il faut **interroger l'API au runtime**.
 
 ---
 
-## Prérequis Système
-
-### Appareils supportés
-
-| Appareil | Puce minimum |
-|----------|-------------|
-| **iPhone** | A17 Pro (iPhone 15 Pro+, tous les iPhone 16) |
-| **iPad** | M1+ ou A17 Pro |
-| **Mac** | Apple Silicon (M1+) |
-| **Vision Pro** | ✅ |
-
-### Versions OS minimum
-
-| OS | Version |
-|----|---------|
-| iOS | 26+ |
-| iPadOS | 26+ |
-| macOS | 26+ |
-| visionOS | 26+ |
-
-### Conditions additionnelles
-
-- **Langue** : l'appareil et Siri doivent être configurés dans la même langue supportée
-- **Stockage** : minimum 7 GB disponibles pour le téléchargement du modèle
-- **Apple Intelligence** : doit être activé dans Réglages système
-
-<Info>
-Le modèle n'est **pas embarqué dans votre app**. Il est téléchargé séparément par l'utilisateur via Apple Intelligence. Votre app fait appel au modèle installé sur l'appareil — c'est pour ça que l'utilisateur doit avoir Apple Intelligence actif et suffisamment de stockage.
-</Info>
-
----
-
-## Vérifier la disponibilité
-
-### Vérification simple
+## Vérification la plus simple
 
 ```swift
 import FoundationModels
 
-struct ModelStatusView: View {
-    var body: some View {
-        VStack {
-            if SystemLanguageModel.default.isAvailable {
-                Button("Prêt à utiliser l'IA") {
-                    // Utiliser le modèle
-                }
-                .buttonStyle(.borderedProminent)
-            } else {
-                ContentUnavailableView(
-                    "IA non disponible",
-                    systemImage: "apple.intelligence",
-                    description: Text("Apple Intelligence n'est pas disponible actuellement.")
-                        .font(.title2)
-                )
-            }
-        }
-        .padding()
-    }
+if SystemLanguageModel.default.isAvailable {
+    let session = LanguageModelSession()
+    let response = try await session.respond(
+        to: "Donne-moi trois idées d'apps Swift."
+    )
+    print(response.content)
 }
 ```
 
-### Diagnostic détaillé
+Cette propriété suffit pour un premier filtrage. Pour une vraie UI, utilisez plutôt `availability`.
 
-`SystemLanguageModel.default` fournit un enum `availability` pour identifier la raison d'une indisponibilité :
+---
+
+## Diagnostic détaillé
+
+Apple expose un état plus précis via `SystemLanguageModel.default.availability`.
 
 ```swift
-func getAvailabilityMessage() -> String {
+import FoundationModels
+
+func availabilityMessage() -> String? {
     switch SystemLanguageModel.default.availability {
     case .available:
-        return ""
+        return nil
     case .unavailable(.deviceNotEligible):
-        return "Appareil non compatible avec Apple Intelligence"
+        return "L'appareil ne prend pas en charge Foundation Models."
     case .unavailable(.appleIntelligenceNotEnabled):
-        return "Apple Intelligence n'est pas activé dans les Réglages"
+        return "Apple Intelligence n'est pas activé."
     case .unavailable(.modelNotReady):
-        return "Modèle en cours de téléchargement ou temporairement indisponible"
-    case .unavailable(let reason):
-        return "Modèle indisponible : \(reason)"
+        return "Le modèle n'est pas prêt pour le moment."
+    case .unavailable:
+        return "Le modèle est indisponible pour une autre raison."
     }
 }
 ```
 
-| Raison | Description | Action utilisateur |
-|--------|-------------|-------------------|
-| `available` | Prêt à l'emploi | — |
-| `deviceNotEligible` | Appareil trop ancien | Mettre à jour l'appareil |
-| `appleIntelligenceNotEnabled` | Désactivé | Activer dans Réglages |
-| `modelNotReady` | En téléchargement ou surchauffe | Patienter |
-| `unavailable` (autre) | Autre raison | Vérifier les conditions |
+### Les cas à connaître
 
-<Info>
-**`modelNotReady` n'est pas forcément permanent.** Le modèle peut devenir temporairement indisponible même en cours d'utilisation : surchauffe de l'appareil, batterie faible, ou trop de charge système. C'est pour ça qu'il faut vérifier la disponibilité non seulement au lancement, mais aussi avant chaque appel si votre app est très intensive.
-</Info>
+| Cas | Ce que ça veut dire |
+|-----|---------------------|
+| `.available` | Vous pouvez appeler le modèle |
+| `.deviceNotEligible` | Le matériel ou la configuration ne conviennent pas |
+| `.appleIntelligenceNotEnabled` | L'utilisateur doit activer la fonctionnalité côté système |
+| `.modelNotReady` | Le modèle n'est pas prêt maintenant, mais cela peut être temporaire |
 
 ---
 
-## Exemple complet avec gestion d'état
+## Vérifier la langue ou la locale
+
+Le support dépend aussi de la langue.
 
 ```swift
-struct AIFeatureView: View {
-    @State private var response = ""
-    @State private var availabilityMessage = ""
+import FoundationModels
+
+let locale = Locale.current
+let supported = SystemLanguageModel.default.supportsLocale(locale)
+print("Locale supportée :", supported)
+```
+
+Si votre produit dépend d'une langue précise, faites cette vérification avant d'afficher la fonctionnalité comme disponible.
+
+---
+
+## Exemple d'UI de fallback
+
+```swift
+import FoundationModels
+import SwiftUI
+
+struct SmartFeatureEntryView: View {
+    private let model = SystemLanguageModel.default
 
     var body: some View {
-        VStack(spacing: 16) {
-            Button("Poser une question") {
-                Task {
-                    let session = LanguageModelSession()
-                    response = try await session.respond(
-                        to: "Donne-moi 3 idées d'app"
-                    ).content
-                }
-            }
-            .buttonStyle(.borderedProminent)
-            .disabled(!availabilityMessage.isEmpty)
+        switch model.availability {
+        case .available:
+            Text("La fonctionnalité IA est disponible.")
 
-            ScrollView {
-                Text(response)
-                if !availabilityMessage.isEmpty {
-                    Label(availabilityMessage, systemImage: "apple.intelligence.badge.xmark")
-                        .foregroundStyle(.red)
-                }
-            }
-        }
-        .padding()
-        .font(.title)
-        .onAppear {
-            availabilityMessage = getAvailabilityMessage()
-        }
-    }
+        case .unavailable(.appleIntelligenceNotEnabled):
+            ContentUnavailableView(
+                "Fonction indisponible",
+                systemImage: "apple.intelligence",
+                description: Text("Activez Apple Intelligence pour utiliser cette fonctionnalité.")
+            )
 
-    func getAvailabilityMessage() -> String {
-        // Voir code ci-dessus
-    }
-}
-```
-
----
-
-## Stratégie de vérification
-
-La disponibilité n'est pas un état fixe — elle peut changer au cours de vie de l'app. Une bonne stratégie couvre trois moments clés :
-
-**Au lancement de l'app** — c'est le moment d'identifier les situations permanentes ou de longue durée : appareil incompatible, Apple Intelligence désactivé, modèle pas encore installé. Si le modèle est absent ici, il faut guider l'utilisateur vers les Réglages.
-
-**Quand la vue apparaît** — utile si votre feature IA est sur un écran spécifique. L'état peut avoir changé depuis le lancement (l'appareil a chauffé entre-temps, l'utilisateur a désactivé AI Intelligence depuis les Réglages).
-
-**À chaque appel** (pour les apps intensives) — si votre app fait des appels en continu (chat, traitement de données), vérifiez avant chaque requête. Un usage intensif peut rendre `modelNotReady` de façon temporaire et imprévisible.
-
-```swift
-// Vérification avant appel avec fallback UI
-guard SystemLanguageModel.default.isAvailable else {
-    showModelUnavailableUI()
-    return
-}
-let session = LanguageModelSession()
-// ... suite
-```
-
----
-
-## Vérifier la langue supportée
-
-```swift
-struct CheckLanguageView: View {
-    @State private var isSupported = false
-
-    var body: some View {
-        HStack {
-            Image(systemName: isSupported
-                ? "checkmark.circle.fill" : "xmark.circle.fill")
-                .foregroundStyle(isSupported ? .green : .red)
-            Text(isSupported ? "Langue supportée" : "Langue non supportée")
-        }
-        .onAppear {
-            isSupported = SystemLanguageModel.default
-                .supportsLocale(Locale.current)
+        default:
+            ContentUnavailableView(
+                "Fonction indisponible",
+                systemImage: "exclamationmark.triangle",
+                description: Text("Cette fonctionnalité n'est pas disponible sur cet appareil pour le moment.")
+            )
         }
     }
 }
 ```
 
-<Warning>
-Le modèle ne supporte pas toutes les langues. Vérifiez et informez l'utilisateur si sa langue n'est pas prise en charge.
-</Warning>
+---
+
+## Quand vérifier la disponibilité
+
+### Au moment d'afficher la fonctionnalité
+
+Utile pour masquer ou désactiver proprement l'entrée dans l'interface.
+
+### Juste avant un appel important
+
+Utile si votre vue reste longtemps à l'écran et que l'état a pu changer.
+
+### Au moment de gérer une erreur
+
+Si un appel échoue, revérifiez la disponibilité avant d'afficher un message générique.
 
 ---
 
-## Tester la disponibilité
+## Recommandation pratique
 
-Pour tester le comportement de votre app quand le modèle est indisponible :
+Évitez les phrases du type "disponible à partir de tel appareil" directement dans le code produit. Les règles de disponibilité évoluent plus vite qu'une documentation statique.
 
-1. Lancez votre app sur un appareil physique
-2. Allez dans **Réglages → Apple Intelligence & Siri**
-3. Désactivez **Apple Intelligence**
-
-<Warning>
-Si vous réactivez Apple Intelligence, le téléchargement du modèle peut prendre du temps avant qu'il ne soit à nouveau disponible.
-</Warning>
+Votre app doit raisonner avec les états fournis par `SystemLanguageModel`.
 
 ---
 
-<Card title="Prochaine étape : Prompts" icon="pen-fancy" href="/mlx/foundation-models/prompts">
-  Apprendre à construire des prompts efficaces →
-</Card>
+<CardGroup cols={2}>
+  <Card title="Prompts" icon="pen-fancy" href="/mlx/foundation-models/prompts">
+    Construire des requêtes plus utiles.
+  </Card>
+  <Card title="Instructions" icon="list-check" href="/mlx/foundation-models/instructions">
+    Guider le comportement du modèle sur une session.
+  </Card>
+</CardGroup>

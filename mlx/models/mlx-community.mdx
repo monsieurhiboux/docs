@@ -1,163 +1,151 @@
 ---
 title: "MLX Community sur Hugging Face"
-description: "Des milliers de modèles quantisés et prêts à l'emploi pour Apple Silicon"
+description: "Choisir et utiliser des modèles déjà préparés pour MLX"
 icon: "users"
 ---
 
-La [MLX Community](https://huggingface.co/mlx-community) sur Hugging Face est l'organisation centrale qui héberge des milliers de modèles pré-convertis et quantisés en format MLX, prêts à tourner sur Apple Silicon.
+[MLX Community](https://huggingface.co/mlx-community) est l'endroit le plus simple pour trouver des modèles déjà convertis pour MLX.
 
-<Card title="mlx-community sur Hugging Face" icon="external-link" href="https://huggingface.co/mlx-community">
-  Parcourir les modèles disponibles →
+Au lieu de partir d'un modèle Hugging Face brut puis de le convertir vous-même, vous pouvez souvent utiliser directement une variante prête à l'emploi.
+
+<Card title="Ouvrir MLX Community" icon="external-link" href="https://huggingface.co/mlx-community">
+  Parcourir les modèles disponibles et leurs variantes.
 </Card>
 
 ---
 
-## Qu'est-ce que la MLX Community ?
+## Pourquoi commencer ici
 
-La MLX Community est une organisation Hugging Face maintenue par la communauté qui :
-- **Convertit** les modèles populaires depuis leur format original vers MLX
-- **Quantise** ces modèles en 4-bit et 8-bit pour Apple Silicon
-- **Valide** le bon fonctionnement de chaque modèle
-- **Documente** les spécificités de chaque modèle
+MLX Community vous fait gagner du temps sur trois points :
 
-Le modèle par défaut pour `mlx_lm.generate` est `mlx-community/Llama-3.2-3B-Instruct-4bit`.
+- le modèle est déjà dans un format compatible MLX
+- les variantes quantifiées sont souvent déjà publiées
+- la carte du modèle vous aide à repérer rapidement l'usage visé
+
+Pour un développeur moyen, c'est le meilleur point de départ avant de parler conversion ou quantification manuelle.
 
 ---
 
-## Familles de modèles disponibles
+## Comment lire le nom d'un modèle
+
+Prenons cet exemple :
+
+```text
+mlx-community/Llama-3.2-3B-Instruct-4bit
+```
+
+Vous pouvez le découper ainsi :
+
+- `mlx-community` : l'organisation Hugging Face
+- `Llama-3.2` : la famille de modèles
+- `3B` : la taille approximative
+- `Instruct` : la variante faite pour suivre des consignes
+- `4bit` : la variante quantifiée pour réduire la mémoire
+
+Quand vous débutez, privilégiez en général :
+
+- une variante `Instruct`
+- une taille modérée
+- une quantification `4bit`
+
+---
+
+## Les familles que vous croiserez le plus souvent
 
 <AccordionGroup>
-  <Accordion title="🦙 Llama (Meta)" icon="brain">
-    | Modèle | RAM (4-bit) | Usage recommandé |
-    |--------|------------|-----------------|
-    | `Llama-3.2-3B-Instruct-4bit` | ~2 GB | Test, apps légères |
-    | `Meta-Llama-3.1-8B-Instruct-4bit` | ~5 GB | Usage général |
-    | `Meta-Llama-3.1-70B-Instruct-4bit` | ~40 GB | État de l'art |
-
-    ```bash
-    mlx_lm.generate --model mlx-community/Meta-Llama-3.1-8B-Instruct-4bit \
-      --prompt "Bonjour !"
-    ```
+  <Accordion title="Llama" icon="brain">
+    Une famille généraliste très présente dans les exemples et les tests. Bon choix pour comprendre un workflow local classique.
   </Accordion>
 
-  <Accordion title="🌊 Mistral" icon="wind">
-    | Modèle | RAM (4-bit) | Usage recommandé |
-    |--------|------------|-----------------|
-    | `Mistral-7B-Instruct-v0.3-4bit` | ~4 GB | Usage général, rapide |
-    | `Mistral-Small-24B-Instruct-4bit` | ~13 GB | Qualité GPT-4 |
-    | `Mixtral-8x7B-Instruct-v0.1-4bit` | ~25 GB | Mixture of Experts |
-
-    > Mistral-Small-24B est recommandé par Simon Willison : "il semble vraiment de qualité GPT-4 avec seulement ~12 GB de RAM"
+  <Accordion title="Mistral" icon="wind">
+    Souvent apprécié pour son bon équilibre entre qualité, taille et simplicité d'usage.
   </Accordion>
 
-  <Accordion title="🤔 DeepSeek (Raisonnement)" icon="magnifying-glass">
-    | Modèle | RAM | Particularité |
-    |--------|-----|---------------|
-    | `DeepSeek-R1-Distill-Qwen-7B-4bit` | ~5 GB | Raisonnement, léger |
-    | `DeepSeek-R1-Distill-Qwen-32B-4bit` | ~18 GB | Raisonnement avancé |
-    | `DeepSeek-R1-Qwen3-0528-8B-4bit-AWQ` | ~6 GB | Dernière version R1 |
-
-    Les modèles DeepSeek-R1 produisent un bloc `<think>...</think>` avant la réponse — excellent pour les tâches complexes de raisonnement.
-
-    ```bash
-    mlx_lm.generate --model mlx-community/DeepSeek-R1-Distill-Qwen-32B-4bit \
-      --prompt "Résous ce problème de maths : ..." \
-      --max-tokens 2000
-    ```
+  <Accordion title="Qwen" icon="globe">
+    Souvent intéressant si vous travaillez en multilingue ou sur des tâches de code.
   </Accordion>
 
-  <Accordion title="⚡ Phi (Microsoft)" icon="bolt">
-    | Modèle | RAM | Usage |
-    |--------|-----|-------|
-    | `Phi-3-mini-4k-instruct-4bit` | ~2 GB | Très léger, rapide |
-    | `Phi-3.5-mini-instruct-4bit` | ~2.5 GB | ✓ Idéal pour fine-tuning |
-    | `Phi-4-4bit` | ~9 GB | Capable, compact |
+  <Accordion title="Phi" icon="bolt">
+    Une bonne famille pour des modèles compacts, donc utile pour tester vite ou fine-tuner sur une machine plus limitée.
   </Accordion>
 
-  <Accordion title="🌏 Qwen (Alibaba)" icon="globe">
-    | Modèle | RAM | Points forts |
-    |--------|-----|-------------|
-    | `Qwen3-8B-4bit` | ~5 GB | Excellent multilingue (fr inclus) |
-    | `Qwen2.5-14B-Instruct-4bit` | ~9 GB | Très bon coder |
-    | `Qwen2.5-Coder-7B-Instruct-4bit` | ~5 GB | Spécialisé code |
-
-    Qwen est particulièrement bien adapté aux langues non-anglaises, dont le **français**.
+  <Accordion title="DeepSeek et modèles spécialisés" icon="magnifying-glass">
+    À réserver à un besoin plus précis. Commencez par un modèle généraliste si vous découvrez encore le comportement des LLMs locaux.
   </Accordion>
 
-  <Accordion title="👁️ Modèles Vision (VLM)" icon="eye">
-    Des modèles multimodaux (texte + images) via **MLX-VLM** :
-
-    | Modèle | Description |
-    |--------|-------------|
-    | `Llava-1.5-7B-hf-4bit` | Comprendre et décrire des images |
-    | `Qwen2-VL-7B-Instruct-4bit` | Vision + texte avancé |
-    | `MiniCPM-V-2_6-4bit` | Compact et performant |
-
-    ```bash
-    pip install mlx-vlm
-    python -m mlx_vlm.generate \
-      --model mlx-community/Llava-1.5-7B-hf-4bit \
-      --prompt "Décris cette image" \
-      --image /chemin/vers/image.jpg
-    ```
+  <Accordion title="Modèles vision-langage" icon="eye">
+    Utiles si vous devez combiner texte et image. Vérifiez bien l'outil associé, car l'inférence passe souvent par un package dédié comme `mlx-vlm`.
   </Accordion>
 </AccordionGroup>
 
 ---
 
-## Comment télécharger et utiliser un modèle
+## Comment choisir sans vous perdre
 
-### Via mlx-lm (téléchargement automatique)
+### Pour découvrir MLX
+
+Prenez un modèle compact, instruct et quantifié en `4bit`.
+
+### Pour un assistant généraliste local
+
+Passez à un modèle plus grand si votre machine le supporte et si la qualité du petit modèle devient une vraie limite.
+
+### Pour du fine-tuning
+
+Choisissez un modèle que vous pouvez entraîner confortablement sur votre machine avant de penser à la qualité absolue.
+
+### Pour une app Swift
+
+Demandez-vous d'abord si Foundation Models couvre le besoin. Si oui, évitez d'embarquer un modèle custom trop tôt.
+
+---
+
+## Télécharger et utiliser un modèle
+
+### Depuis la CLI
 
 ```bash
-# Le modèle est téléchargé automatiquement
 mlx_lm.generate \
   --model mlx-community/Mistral-7B-Instruct-v0.3-4bit \
-  --prompt "Bonjour !"
+  --prompt "Bonjour"
 ```
 
-Les modèles sont cachés dans `~/.cache/huggingface/hub/`.
+### Depuis Python
 
-### Via huggingface-cli (téléchargement explicite)
+```python
+from mlx_lm import load, generate
+
+model, tokenizer = load("mlx-community/Llama-3.2-3B-Instruct-4bit")
+response = generate(model, tokenizer, prompt="Explique MLX simplement.", max_tokens=150)
+print(response)
+```
+
+### Télécharger localement
 
 ```bash
 huggingface-cli download mlx-community/Mistral-7B-Instruct-v0.3-4bit \
-  --local-dir ./models/mistral-7b-4bit
-```
-
-### Via Python
-
-```python
-from huggingface_hub import snapshot_download
-
-snapshot_download(
-    "mlx-community/Llama-3.2-3B-Instruct-4bit",
-    local_dir="./models/llama-3.2-3b"
-)
+  --local-dir ./models/mistral-7b
 ```
 
 ---
 
-## Uploader votre propre modèle fine-tuné
+## Quand convertir vous-même un modèle
 
-Après un fine-tuning, partagez votre modèle avec la communauté :
+Ne convertissez un modèle que si :
 
-```bash
-# Fusionner les adapters
-mlx_lm.fuse \
-  --model mlx-community/Mistral-7B-Instruct-v0.3-4bit \
-  --adapter-path ./adapters \
-  --save-path ./my-fine-tuned-model \
-  --upload-name votre-username/mistral-7b-mon-domaine
-```
+- il n'existe pas déjà dans MLX Community
+- vous avez besoin d'une variante précise
+- vous voulez publier votre propre conversion
+
+Sinon, utilisez d'abord une version existante. C'est plus rapide et plus simple à valider.
 
 ---
 
 <CardGroup cols={2}>
   <Card title="Quantification" icon="compress" href="/mlx/models/quantization">
-    Convertir et quantifier vos propres modèles pour MLX →
+    Comprendre quand et comment convertir un modèle.
   </Card>
-  <Card title="Écosystème MLX" icon="wrench" href="/mlx/ecosystem/awesome-mlx">
-    MLX-VLM, embeddings, SiLLM et projets communautaires →
+  <Card title="Générer du texte" icon="terminal" href="/mlx/local-llms/mlx-lm-generate">
+    Utiliser le modèle avec `mlx-lm`.
   </Card>
 </CardGroup>

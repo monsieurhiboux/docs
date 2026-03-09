@@ -1,124 +1,118 @@
 ---
-title: "Apple Foundation Models"
-description: "Le framework on-device d'Apple pour intégrer l'IA directement dans vos apps SwiftUI"
+title: "Foundation Models"
+description: "Utiliser le modèle de langage système d'Apple depuis Swift"
 icon: "apple"
 ---
 
 <Note>
-Disponible à partir d'iOS 26 / macOS 26 / iPadOS 26 — nécessite Apple Intelligence activé sur l'appareil.
+Foundation Models donne accès au modèle de langage système d'Apple via le module `FoundationModels`. Votre app n'embarque pas elle-même les poids du modèle. Vérifiez toujours la disponibilité au runtime.
 </Note>
 
-## Qu'est-ce que le framework FoundationModels ?
+## Ce que c'est, simplement
 
-Apple a créé un LLM entraîné pour fonctionner **directement sur l'appareil de l'utilisateur**, enveloppé dans un framework Swift natif appelé `FoundationModels`. Contrairement aux services cloud comme ChatGPT, Claude ou Gemini, tout le traitement reste local.
+**Foundation Models** est le framework Swift qui vous permet d'utiliser le modèle système on-device d'Apple dans une app.
 
-Le framework repose sur trois concepts simples :
+Pour un développeur Swift, c'est souvent l'entrée la plus simple vers l'IA générative sur Apple :
 
+- API Swift native
+- modèle fourni par le système
+- génération de texte
+- sortie structurée avec `@Generable`
+- streaming
+- tool calling
+
+Le point d'entrée principal est `LanguageModelSession`.
+
+```swift
+import FoundationModels
+
+let session = LanguageModelSession()
+let response = try await session.respond(
+    to: "Explique en deux phrases quand utiliser une sortie structurée."
+)
+
+print(response.content)
 ```
-┌──────────┐     ┌──────────┐     ┌──────────┐
-│  Prompt  │ ──▶ │  Model   │ ──▶ │ Response │
-│    📝    │     │    🧠    │     │    💬    │
-└──────────┘     └──────────┘     └──────────┘
-```
-
-1. **Prompt** — Le texte que vous envoyez au modèle
-2. **Model** — Le `LanguageModelSession` qui traite votre prompt
-3. **Response** — La réponse générée par le modèle
 
 ---
 
-## Pourquoi utiliser FoundationModels ?
+## Quand utiliser Foundation Models
+
+Choisissez Foundation Models si :
+
+- vous développez une app Swift sur une plateforme Apple compatible
+- le modèle système Apple suffit à votre cas d'usage
+- vous voulez une intégration native et rapide
+- vous préférez éviter de gérer vous-même des poids de modèle
+
+Exemples de cas d'usage adaptés :
+
+- reformuler ou résumer du texte
+- produire une réponse courte et contextualisée
+- classer ou structurer une information
+- enrichir une UI avec une fonctionnalité générative locale
+
+---
+
+## Ce que le framework fait bien
 
 <CardGroup cols={2}>
-  <Card title="🔒 Privé" icon="lock">
-    Tout reste sur l'appareil. Aucune donnée ne quitte le device.
+  <Card title="Swift natif" icon="swift">
+    L'API s'intègre naturellement avec SwiftUI, Observation et la concurrence Swift.
   </Card>
-  <Card title="⚡ Rapide" icon="bolt">
-    Inférence locale sans latence réseau.
+  <Card title="Sortie structurée" icon="table-columns">
+    Vous pouvez demander des objets Swift plutôt que du texte brut.
   </Card>
-  <Card title="💸 Gratuit" icon="coins">
-    Pas d'API key, pas de coûts par token.
+  <Card title="Streaming" icon="bolt">
+    La réponse peut arriver progressivement pour une meilleure UX.
   </Card>
-  <Card title="📴 Hors-ligne" icon="wifi-slash">
-    Fonctionne sans connexion internet.
+  <Card title="Tools" icon="wrench">
+    Le modèle peut appeler votre code pour accéder à des données ou déclencher des actions.
   </Card>
 </CardGroup>
 
 ---
 
-## Ce que FoundationModels peut faire
+## Ce qu'il ne faut pas lui demander
 
-<AccordionGroup>
-  <Accordion title="Génération de texte & contenu" icon="pen-fancy">
-    Résumés, emails, réponses intelligentes, brainstorming, contenu pour réseaux sociaux, rédaction assistée, expansion de notes en paragraphes détaillés.
-  </Accordion>
+Foundation Models n'est pas le bon choix si vous avez besoin :
 
-  <Accordion title="Extraction de données structurées" icon="database">
-    Auto-complétion de formulaires, catégorisation de dépenses, extraction de tâches depuis des notes de réunion, suggestion de tags pour documents.
-  </Accordion>
+- d'un modèle open weight précis
+- de fine-tuning local
+- d'une très grande fenêtre de contexte
+- d'un raisonnement long ou très spécialisé
 
-  <Accordion title="IA conversationnelle" icon="comments">
-    Apprentissage interactif, dialogues dynamiques pour jeux, support utilisateur, guide pas-à-pas.
-  </Accordion>
+Dans ces cas-là, regardez plutôt :
 
-  <Accordion title="Outils créatifs" icon="wand-magic-sparkles">
-    Changement de ton, correction orthographique, clarification de texte, extraction de mots-clés, génération d'hypothèses.
-  </Accordion>
-</AccordionGroup>
+- [MLX](/mlx/introduction) pour des modèles open weight sur Apple Silicon
+- un backend local via `mlx-lm`, Ollama ou `llama.cpp`
+- éventuellement un service cloud si la tâche dépasse clairement le modèle système
 
 ---
 
-## Ce que FoundationModels ne peut PAS faire
+## Foundation Models vs MLX
 
-| Limitation | Alternative Apple |
-|-----------|-------------------|
-| Génération d'images | `ImageCreator` Framework |
-| Analyse d'images/vidéos | `Vision` Framework |
-| Reconnaissance vocale | `Speech` Framework |
-| Synthèse vocale (text-to-speech) | `AVFoundation` |
+| Question | Foundation Models | MLX |
+|----------|-------------------|-----|
+| Quel modèle utilisez-vous ? | Le modèle système Apple | Un modèle open weight de votre choix |
+| Qui gère les poids ? | Le système | Vous |
+| API principale | Swift | Python et Swift |
+| Fine-tuning | Non | Oui |
+| Bon choix pour une feature Swift rapide | Oui | Pas toujours |
 
----
-
-## FoundationModels vs Modèles Cloud
-
-| | FoundationModels | Modèles Cloud (GPT, Claude…) |
-|---|---|---|
-| **Vitesse** | Rapide | Latence réseau |
-| **Coût** | Gratuit | Payant par token |
-| **Vie privée** | 100% on-device | Données envoyées au serveur |
-| **Disponibilité** | Sans connexion | Nécessite internet |
-| **Raisonnement complexe** | Limité | Excellent |
-| **Contexte** | ~4 096 tokens (~3 000 mots) | Jusqu'à 200k+ tokens |
-| **Base de connaissances** | Limitée | Très étendue |
-| **Réponses Swift natives** | ✅ Objets Swift via `@Generable` | ❌ Parsing JSON requis |
-
-<Warning>
-Ne traitez pas FoundationModels comme un modèle cloud. La fenêtre de contexte est de **~4 096 tokens**. Il excelle pour les tâches de texte et la génération de réponses structurées en objets Swift natifs, pas pour le raisonnement complexe.
-</Warning>
+Ces deux approches sont complémentaires. Beaucoup de produits commencent avec Foundation Models, puis ajoutent MLX seulement quand ils ont besoin d'un modèle personnalisé.
 
 ---
 
-## Architecture hybride possible
+## Le premier réflexe à adopter
 
-FoundationModels peut servir de "pont" entre un LLM cloud et votre app, en combinant le meilleur des deux :
+Avant d'écrire votre feature, vérifiez toujours deux choses :
 
-```
-┌──────────┐     ┌──────────────────┐     ┌──────────┐
-│  Prompt  │ ──▶ │  Foundation      │ ──▶ │ Response │
-│          │     │  Model           │     │ (Swift   │
-│          │     │                  │     │  object) │
-│          │     │   ┌──────────┐   │     │          │
-│          │     │   │  Tool    │   │     │          │
-│          │     │   │ (API LLM │   │     │          │
-│          │     │   │  cloud)  │   │     │          │
-│          │     │   └──────────┘   │     │          │
-└──────────┘     └──────────────────┘     └──────────┘
-```
+1. le modèle est-il disponible sur l'appareil ?
+2. la langue et le cas d'usage sont-ils compatibles ?
 
-Le modèle on-device excelle dans le parsing et la conversion des réponses en objets Swift. Le Tool peut interroger un LLM cloud quand une tâche dépasse les capacités locales.
+La page suivante vous montre comment le faire proprement.
 
----
-
-<Card title="Prochaine étape : Disponibilité du modèle" icon="circle-check" href="/mlx/foundation-models/availability">
-  Vérifier si le modèle est disponible sur l'appareil de l'utilisateur →
+<Card title="Disponibilité du modèle" icon="circle-check" href="/mlx/foundation-models/availability">
+  Vérifier la disponibilité avant d'appeler le modèle.
 </Card>

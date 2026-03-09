@@ -1,102 +1,70 @@
 ---
-title: "Erreurs & Guardrails"
-description: "Gérer les erreurs du LanguageModelSession et comprendre les guardrails de sécurité Apple"
+title: "Erreurs & guardrails"
+description: "Gérer proprement les erreurs de génération et de tool calling"
 icon: "triangle-exclamation"
 ---
 
-Le framework FoundationModels peut lever différentes erreurs qu'il faut anticiper et gérer proprement dans votre app. Apple intègre également des **guardrails** de sécurité qui bloquent certains contenus.
+Les erreurs ne sont pas un cas marginal. Dans une app réelle, vous devez prévoir :
+
+- l'indisponibilité du modèle
+- les prompts concurrents
+- les réponses structurées qui échouent à se décoder
+- les refus ou blocages de sécurité
+- les erreurs de vos tools
 
 ---
 
-## Les types d'erreurs (GenerationError)
+## Les erreurs les plus utiles à connaître
 
-| Erreur | Description | Récupération |
-|--------|-------------|--------------|
-| `assetsUnavailable` | Le modèle n'est plus accessible (désactivé, supprimé, espace insuffisant) | Réessayer plus tard ou vérifier `isAvailable` |
-| `concurrentRequests` | Un 2e prompt est envoyé pendant que le 1er est en cours de traitement | Attendre la fin du prompt en cours (`isResponding`) |
-| `decodingFailure` | La réponse n'a pas pu être convertie en objet (Guided Generation) | Reformuler le prompt ou simplifier le type `@Generable` |
-| `exceededContextWindowSize` | La fenêtre de contexte (4 096 tokens) est dépassée | Créer une nouvelle session ou raccourcir le prompt |
-| `guardrailViolation` | Contenu bloqué par les guardrails de sécurité Apple | Reformuler le prompt de manière plus sûre |
-| `rateLimited` | App en arrière-plan ayant dépassé la limite de requêtes | Espacer les requêtes |
-| `refusal` | Le modèle ne sait pas répondre (pas de données d'entraînement sur le sujet) | Informer l'utilisateur |
-| `unsupportedGuide` | Un `@Guide` avec un pattern Regex non supporté | Corriger le pattern |
-| `unsupportedLanguageOrLocale` | Langue du prompt non supportée | Vérifier `supportsLocale()` |
+| Erreur | Ce que vous devez faire |
+|--------|--------------------------|
+| `assetsUnavailable` | Vérifier la disponibilité du modèle et proposer un retry |
+| `concurrentRequests` | Empêcher les doubles envois |
+| `decodingFailure` | Simplifier le type généré ou le prompt |
+| `exceededContextWindowSize` | Créer une nouvelle session ou raccourcir l'entrée |
+| `guardrailViolation` | Afficher un message clair et demander une reformulation |
+| `rateLimited` | Réessayer plus tard |
+| `refusal` | Expliquer que le modèle n'a pas répondu |
+| `unsupportedGuide` | Corriger les guides côté développement |
+| `unsupportedLanguageOrLocale` | Vérifier la locale prise en charge |
 
 ---
 
-## Pattern de gestion d'erreurs
+## Un pattern de base en SwiftUI
 
 ```swift
-struct SafeAIView: View {
-    @State private var response = ""
-    @State private var errorMessage = ""
-    @State private var isError = false
+import FoundationModels
+import Observation
 
-    var body: some View {
-        VStack(spacing: 16) {
-            Button("Envoyer le prompt") {
-                Task { await askModel() }
-            }
-            .buttonStyle(.borderedProminent)
+@Observable
+@MainActor
+final class AIViewModel {
+    var output = ""
+    var errorMessage: String?
 
-            ScrollView {
-                Text(.init(response))
-                    .foregroundStyle(isError ? .red : .primary)
-                    .padding()
-            }
-        }
-        .padding()
-    }
+    private let session = LanguageModelSession()
 
-    func askModel() async {
-        let session = LanguageModelSession()
+    func run(prompt: String) async {
+        errorMessage = nil
 
         do {
-            response = try await session.respond(
-                to: "Mon prompt ici"
-            ).content
-            isError = false
-
+            let response = try await session.respond(to: prompt)
+            output = response.content
         } catch let error as LanguageModelSession.GenerationError {
-            isError = true
             switch error {
-            case .guardrailViolation(let context):
-                response = "Contenu bloqué par les guardrails. Reformulez votre demande."
-                print("Guardrail: \(context.debugDescription)")
-
-            case .exceededContextWindowSize:
-                response = "Conversation trop longue. Relancez une nouvelle session."
-
             case .concurrentRequests:
-                response = "Patientez, une réponse est en cours de génération."
-
-            case .assetsUnavailable:
-                response = "Le modèle IA n'est pas disponible actuellement."
-
-            case .refusal:
-                response = "Le modèle n'a pas pu répondre à cette question."
-
-            case .rateLimited:
-                response = "Trop de requêtes. Réessayez dans un instant."
-
+                errorMessage = "Une réponse est déjà en cours."
+            case .exceededContextWindowSize:
+                errorMessage = "La conversation est devenue trop longue. Recommencez une nouvelle session."
+            case .guardrailViolation:
+                errorMessage = "Cette demande ne peut pas être traitée telle quelle."
+            case .unsupportedLanguageOrLocale:
+                errorMessage = "La langue actuelle n'est pas prise en charge."
             default:
-                response = "Erreur : \(error.localizedDescription)"
+                errorMessage = "La génération a échoué. Réessayez."
             }
-
-            // Informations de debug supplémentaires
-            if let description = error.errorDescription {
-                print("Description: \(description)")
-            }
-            if let reason = error.failureReason {
-                print("Raison: \(reason)")
-            }
-            if let suggestion = error.recoverySuggestion {
-                print("Suggestion: \(suggestion)")
-            }
-
         } catch {
-            isError = true
-            response = "Erreur inattendue : \(error.localizedDescription)"
+            errorMessage = "Erreur inattendue : \(error.localizedDescription)"
         }
     }
 }
@@ -104,117 +72,72 @@ struct SafeAIView: View {
 
 ---
 
-## Guardrails : sécurité intégrée
+## Guardrails : ce que ça implique pour l'UI
 
-Les **guardrails** sont des règles de sécurité intégrées au modèle Apple qui bloquent les contenus jugés inappropriés. Ils ne sont pas configurables par le développeur.
+Les guardrails sont intégrés au modèle. Vous ne les configurez pas librement.
 
-### Exemples de prompts bloqués vs acceptés
+Côté produit, cela signifie :
 
-| Bloqué | Accepté |
-|--------|---------|
-| "Comment fabriquer des explosifs" | "Explique la chimie des feux d'artifice" |
-| "Écris un contenu violent" | "Écris une scène d'action pour un film" |
-| "Aide-moi à pirater un compte" | "Explique les bonnes pratiques de cybersécurité" |
-| "Génère du contenu discriminatoire" | "Explique l'importance de la diversité" |
+- ne promettez pas que le modèle répondra à tout
+- prévoyez un message de reformulation
+- évitez d'afficher des erreurs techniques brutes
 
-### Gérer les guardrails dans l'UI
+Le bon message utilisateur ressemble souvent à :
+
+```text
+Cette demande ne peut pas être traitée. Essayez de reformuler.
+```
+
+---
+
+## `refusal` n'est pas toujours une erreur spectaculaire
+
+Parfois le modèle lève une erreur. Parfois il produit simplement une réponse de refus. Dans les deux cas, votre app doit rester compréhensible.
+
+Ne basez pas toute votre stratégie uniquement sur une exception.
+
+---
+
+## Gérer les erreurs de tools
+
+Quand un tool échoue, vous pouvez récupérer un `ToolCallError`.
 
 ```swift
-Button("Envoyer") {
-    Task {
-        let session = LanguageModelSession()
-
-        do {
-            message = try await session.respond(
-                to: userPrompt
-            ).content
-            isError = false
-        } catch let error as LanguageModelSession.GenerationError {
-            if case .guardrailViolation(let context) = error {
-                message = "Cette demande ne peut pas être traitée. Essayez de reformuler."
-                isError = true
-            }
-        }
+func runWithTools(session: LanguageModelSession) async {
+    do {
+        let response = try await session.respond(
+            to: "Cherche mes prochains rendez-vous."
+        )
+        print(response.content)
+    } catch let error as LanguageModelSession.ToolCallError {
+        print("Tool en échec :", error.tool.name)
+        print("Cause :", error.underlyingError.localizedDescription)
+    } catch {
+        print(error.localizedDescription)
     }
 }
 ```
 
-<Info>
-Le modèle ne lève pas toujours une `guardrailViolation`. Parfois il répond simplement : "Je suis désolé, je ne peux pas aider avec ça." Prévoyez les deux cas.
-</Info>
+Si votre tool parle à une base locale ou à un backend, fournissez des erreurs métier lisibles avec `LocalizedError`.
 
 ---
 
-## Erreurs de Tools (ToolCallError)
+## Ce qu'il faut faire dans l'app
 
-Quand un Tool échoue, l'erreur est wrappée dans un `ToolCallError` :
+- bloquer les doubles envois avec `isResponding`
+- différencier erreur technique et message utilisateur
+- réinitialiser la session si le contexte devient trop long
+- prévoir un fallback si le modèle n'est pas disponible
 
-```swift
-do {
-    let result = try await session.respond(
-        to: "Activité volcanique en Antarctique ?"
-    )
-    response = result.content
-} catch let error as LanguageModelSession.ToolCallError {
-    // Accès au tool qui a échoué
-    let toolName = error.tool.name
-    let toolDescription = error.tool.description
-
-    // Accès à l'erreur sous-jacente
-    let underlyingMessage = error.underlyingError.localizedDescription
-
-    // recoverySuggestion si implémentée via LocalizedError
-    if let suggestion = (error.underlyingError as? LocalizedError)?.recoverySuggestion {
-        print("Suggestion : \(suggestion)")
-    }
-} catch {
-    print("Erreur inattendue : \(error)")
-}
-```
-
-### Créer des erreurs Custom pour vos Tools
-
-Utilisez `LocalizedError` pour fournir des messages clairs :
-
-```swift
-enum MyToolError: LocalizedError {
-    case dataNotFound(String)
-    case apiUnavailable
-
-    var errorDescription: String? {
-        switch self {
-        case .dataNotFound(let query):
-            return "Aucune donnée trouvée pour '\(query)'."
-        case .apiUnavailable:
-            return "L'API externe est temporairement indisponible."
-        }
-    }
-
-    var recoverySuggestion: String? {
-        switch self {
-        case .dataNotFound:
-            return "Essayez avec un terme de recherche différent."
-        case .apiUnavailable:
-            return "Réessayez dans quelques minutes."
-        }
-    }
-}
-```
+Une bonne gestion d'erreur protège autant la stabilité de l'UI que la perception de qualité.
 
 ---
 
-## Bonnes pratiques
-
-- **Toujours envelopper** les appels `respond(to:)` et `streamResponse(to:)` dans un `do-catch`
-- Différenciez `GenerationError` (erreurs du modèle) et `ToolCallError` (erreurs de vos tools)
-- Affichez des **messages utilisateur clairs** — pas les messages d'erreur techniques bruts
-- Utilisez `isResponding` pour **empêcher les doubles envois** et éviter `concurrentRequests`
-- Surveillez la taille du contexte et **créez une nouvelle session** quand elle est trop longue
-- Testez vos guardrails en envoyant des prompts limites pendant le développement
-- Implémentez `recoverySuggestion` dans vos erreurs custom pour guider l'utilisateur
-
----
-
-<Card title="Prochaine étape : Streaming & UX" icon="bolt" href="/mlx/foundation-models/streaming-ux">
-  Créer des interfaces réactives avec le streaming →
-</Card>
+<CardGroup cols={2}>
+  <Card title="Streaming & UX" icon="bolt" href="/mlx/foundation-models/streaming-ux">
+    Voir comment intégrer la génération dans l'interface.
+  </Card>
+  <Card title="Patterns d'architecture" icon="sitemap" href="/mlx/foundation-models/architecture-patterns">
+    Choisir les bons patterns dès le départ.
+  </Card>
+</CardGroup>

@@ -1,40 +1,29 @@
 ---
 title: "Guide LoRA Fine-Tuning"
-description: "Step-by-step : fine-tuner un LLM sur Apple Silicon avec LoRA via mlx-lm"
+description: "Adapter un LLM avec LoRA dans MLX sans réentraîner tous les poids"
 icon: "dumbbell"
 ---
 
-<Note>
-Guide basé sur les ressources : [Towards Data Science](https://towardsdatascience.com/lora-fine-tuning-on-your-apple-silicon-macbook), [DZone](https://dzone.com/articles/fine-tuning-llms-locally-using-mlx-lm-guide), [DEV Community](https://dev.to/prashant/the-magic-of-lora-fine-tuning-with-mlx-part-4-367p) et la communauté [r/LocalLLaMA](https://reddit.com/r/LocalLLaMA/comments/18wabkc).
-</Note>
+**LoRA** est souvent la première technique à essayer quand vous voulez adapter un LLM localement. L'idée est simple : vous n'entraînez pas tout le modèle. Vous ajoutez un petit nombre de paramètres entraînables qui modifient son comportement.
 
-## Comment fonctionne LoRA ?
-
-**LoRA (Low-Rank Adaptation)** est une technique qui permet de fine-tuner efficacement un LLM sans modifier tous ses poids.
-
-Au lieu de mettre à jour la matrice de poids complète (d×k paramètres), LoRA décompose la mise à jour en **deux matrices plus petites** (A et B de rang r) :
-
-```
-W_updated = W_original + A × B
-```
-
-Où :
-- `W_original` est gelé (frozen) — pas modifié
-- `A` (d×r) et `B` (r×k) sont entraînés — petits et légers
-
-**Réduction de paramètres** : de d×k → r×(d+k), soit souvent **99% de paramètres en moins** tout en maintenant la qualité.
-
-### Comparaison mémoire (modèle Llama 7B)
-
-| Méthode | RAM nécessaire |
-|---------|----------------|
-| Full Fine-Tuning | ~28 GB |
-| LoRA (r=8) | ~14 GB |
-| QLoRA (4-bit + LoRA) | ~7 GB |
+Pour un développeur moyen, c'est l'approche la plus réaliste pour commencer un fine-tuning sur Mac.
 
 ---
 
-## Étape 1 : Installation
+## Pourquoi LoRA est utile
+
+LoRA permet de :
+
+- réduire la mémoire nécessaire
+- raccourcir le temps d'entraînement
+- garder le modèle de base intact
+- partager seulement les adaptateurs si besoin
+
+Concrètement, vous conservez le modèle d'origine et vous ajoutez des adaptateurs que vous pouvez charger ou fusionner plus tard.
+
+---
+
+## Étape 1 : préparer l'environnement
 
 ```bash
 python -m venv .venv
@@ -44,189 +33,121 @@ pip install -U mlx-lm pandas huggingface_hub "huggingface_hub[cli]"
 
 ---
 
-## Étape 2 : Préparer vos données
+## Étape 2 : préparer le dataset
 
-MLX accepte des datasets en **format JSONL** dans 4 formats :
+Créez au minimum :
 
-### Format Chat (recommandé)
-
-```jsonl
-{"messages": [{"role": "user", "content": "Qu'est-ce que la photosynthèse ?"}, {"role": "assistant", "content": "La photosynthèse est le processus par lequel..."}]}
-{"messages": [{"role": "user", "content": "Explique la gravité."}, {"role": "assistant", "content": "La gravité est une force fondamentale..."}]}
-```
-
-### Format Completions
-
-```jsonl
-{"prompt": "Définition de l'osmose :", "completion": "L'osmose est le passage de molécules de solvant..."}
-```
-
-### Format Text simple
-
-```jsonl
-{"text": "Le fine-tuning consiste à adapter un modèle pré-entraîné sur des données spécifiques..."}
-```
-
-### Structure des fichiers
-
-```
+```text
 data/
-  train.jsonl    ← données d'entraînement
-  valid.jsonl    ← données de validation (optionnel mais recommandé)
-  test.jsonl     ← données de test (optionnel)
+├── train.jsonl
+└── valid.jsonl
 ```
 
-<Warning>
-**Validez vos fichiers JSONL !** Des caractères mal échappés invalident le dataset sans avertissement clair. Utilisez :
-```bash
-python -c "import json; [json.loads(l) for l in open('data/train.jsonl')]"
-echo "Dataset valide ✓"
-```
-</Warning>
+Si vous partez de zéro, lisez d'abord [Préparer vos données](/mlx/fine-tuning/dataset-preparation).
 
 ---
 
-## Étape 3 : Lancer le fine-tuning LoRA
-
-La commande de base :
+## Étape 3 : lancer un premier entraînement
 
 ```bash
 mlx_lm.lora \
-  --model microsoft/Phi-3.5-mini-instruct \
+  --model mlx-community/Phi-3.5-mini-instruct-4bit \
   --train \
   --data ./data \
-  --iters 100
+  --adapter-path ./adapters \
+  --iters 200 \
+  --batch-size 1 \
+  --lora-layers 8
 ```
 
-### Paramètres importants
-
-| Paramètre | Description | Valeur recommandée |
-|-----------|-------------|-------------------|
-| `--model` | Modèle de base (HF ou local) | `Phi-3.5-mini`, `Mistral-7B-v0.3` |
-| `--data` | Dossier avec train/valid JSONL | `./data` |
-| `--iters` | Nombre d'itérations | 100–1000 selon dataset |
-| `--batch-size` | Taille du batch | 1–4 (selon RAM) |
-| `--lora-layers` | Couches à fine-tuner | 8–16 (moins = moins de RAM) |
-| `--learning-rate` | Taux d'apprentissage | `1e-5` à `1e-4` |
-| `--val-batches` | Batches de validation | 25 |
-| `--steps-per-report` | Fréquence d'affichage | 10 |
-| `--save-every` | Sauvegarder les adapters | 100 |
-
-### Exemple avancé
-
-```bash
-mlx_lm.lora \
-  --model mistralai/Mistral-7B-Instruct-v0.3 \
-  --train \
-  --data ./data \
-  --iters 500 \
-  --batch-size 2 \
-  --lora-layers 8 \
-  --learning-rate 1e-5 \
-  --val-batches 25 \
-  --steps-per-report 10 \
-  --save-every 100 \
-  --adapter-path ./adapters
-```
+Ce premier run sert à valider le pipeline, pas à chercher la configuration parfaite.
 
 <Tip>
-**Résultat typique** : avec 100 itérations sur un dataset de 600 lignes (Phi-3.5-mini), vous obtenez une validation loss autour de **1.530** — pas mal pour seulement 0.082% des poids du modèle mis à jour !
+Commencez avec un modèle compact et un petit nombre d'itérations. Vous apprendrez plus vite qu'en lançant tout de suite un entraînement long sur un gros modèle.
 </Tip>
 
 ---
 
-## Étape 4 : Configuration LoRA avancée (YAML)
+## Les paramètres qui comptent vraiment au début
 
-Créez un fichier `lora_config.yaml` pour un contrôle fin :
-
-```yaml
-# lora_config.yaml
-num_layers: 8
-
-lora_parameters:
-  rank: 8           # Rang des matrices LoRA (plus élevé = plus expressif)
-  scale: 20.0       # Facteur de scaling (alpha / rank)
-  dropout: 0.0      # Dropout sur les couches LoRA
-
-# Paramètres d'entraînement
-learning_rate: 1e-5
-batch_size: 2
-iters: 500
-val_batches: 25
-steps_per_report: 10
-steps_per_eval: 50
-save_every: 100
-```
-
-```bash
-mlx_lm.lora \
-  --model mistralai/Mistral-7B-Instruct-v0.3 \
-  --train \
-  --data ./data \
-  --config lora_config.yaml
-```
+| Paramètre | À retenir |
+|-----------|-----------|
+| `--model` | Choisissez un modèle que votre machine peut charger facilement |
+| `--data` | Dossier contenant `train.jsonl` et idéalement `valid.jsonl` |
+| `--iters` | Commencez bas, puis augmentez si les résultats le justifient |
+| `--batch-size` | Réduisez-le si la mémoire pose problème |
+| `--lora-layers` | Plus il est élevé, plus le coût monte |
+| `--adapter-path` | Dossier où seront écrits les adaptateurs |
 
 ---
 
-## Étape 5 : Tester avec les adapters
+## Étape 4 : tester les adaptateurs
 
-Avant de fusionner, testez votre modèle fine-tuné :
+Une fois l'entraînement terminé, testez le modèle avec les adaptateurs :
 
 ```bash
 mlx_lm.generate \
-  --model microsoft/Phi-3.5-mini-instruct \
+  --model mlx-community/Phi-3.5-mini-instruct-4bit \
   --adapter-path ./adapters \
-  --prompt "Votre question de test ici" \
-  --max-tokens 500
+  --prompt "Explique LoRA à un développeur Swift."
 ```
+
+Comparez ensuite avec le modèle de base. La bonne question n'est pas "est-ce que la sortie est impressionnante ?", mais plutôt "est-ce que le comportement s'est rapproché de mon besoin ?"
 
 ---
 
-## Étape 6 : Fusionner les adapters (Fuse)
+## Étape 5 : fusionner si nécessaire
 
-Une fois satisfait des résultats, fusionnez les adapters LoRA dans le modèle de base pour créer un modèle standalone :
-
-```bash
-mlx_lm.fuse \
-  --model mistralai/Mistral-7B-Instruct-v0.3 \
-  --adapter-path ./adapters \
-  --save-path ./my-fine-tuned-model
-```
-
-Le modèle fusionné peut être utilisé directement sans avoir besoin des adapters séparés.
-
-### Option : Uploader sur Hugging Face
+Si vous voulez obtenir un artefact unique plutôt qu'un modèle + des adaptateurs séparés :
 
 ```bash
 mlx_lm.fuse \
-  --model mistralai/Mistral-7B-Instruct-v0.3 \
+  --model mlx-community/Phi-3.5-mini-instruct-4bit \
   --adapter-path ./adapters \
-  --save-path ./my-fine-tuned-model \
-  --upload-name username/my-model-name
+  --save-path ./my-finetuned-model
 ```
+
+Vous pouvez ensuite utiliser ce dossier comme un modèle local classique.
 
 ---
 
-## Suivre l'entraînement
+## Comment lire les résultats pendant l'entraînement
 
-Pendant le fine-tuning, vous verrez dans le terminal :
+Surveillez surtout :
 
-```
-Iter 1: Train loss 2.847, Learning Rate 1.000e-05, It/sec 2.34
-Iter 10: Train loss 2.341, ...
-Iter 50: Train loss 1.876, Val loss 1.923
-Iter 100: Train loss 1.534, Val loss 1.530 ← loss converge
-```
+- la `train loss`
+- la `val loss`
+- la stabilité générale de l'entraînement
 
-Une `val loss` qui descend indique que le modèle apprend. Si elle remonte, c'est de l'overfitting.
+Si la perte d'entraînement baisse mais que la validation se dégrade, vous êtes probablement en train de suradapter le modèle à vos données.
+
+---
+
+## Bonnes pratiques simples
+
+- commencez avec un modèle petit ou moyen
+- testez votre dataset avant tout entraînement long
+- gardez une validation séparée
+- comparez toujours le modèle de base et le modèle adapté
+- ne changez pas dix paramètres à la fois
+
+---
+
+## Quand passer à QLoRA
+
+Passez à [QLoRA](/mlx/fine-tuning/qlora-guide) si :
+
+- la mémoire devient votre contrainte principale
+- vous voulez fine-tuner directement un modèle quantifié
+- vous devez rester sur une machine plus limitée
 
 ---
 
 <CardGroup cols={2}>
-  <Card title="QLoRA (encore moins de RAM)" icon="microchip" href="/mlx/fine-tuning/qlora-guide">
-    Entraîner sur des modèles quantisés 4-bit →
+  <Card title="QLoRA" icon="microchip" href="/mlx/fine-tuning/qlora-guide">
+    Réduire encore le coût mémoire.
   </Card>
   <Card title="Préparer vos données" icon="database" href="/mlx/fine-tuning/dataset-preparation">
-    Formats, templates et bonnes pratiques →
+    Revoir le dataset avant d'entraîner.
   </Card>
 </CardGroup>

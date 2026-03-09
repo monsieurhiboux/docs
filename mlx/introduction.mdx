@@ -1,169 +1,140 @@
 ---
 title: "Introduction à MLX"
-description: "Le framework open-source d'Apple pour le machine learning sur Apple Silicon"
+description: "Comprendre ce que MLX apporte pour exécuter et entraîner des modèles sur Apple Silicon"
 icon: "apple"
 ---
 
 <Note>
-MLX est disponible uniquement sur macOS 14.0+ avec des puces Apple Silicon (M1, M2, M3, M4, M5).
+Cette documentation se concentre sur l'usage de MLX sur Mac avec Apple Silicon. Le projet MLX a évolué au-delà de ce périmètre, mais ici nous privilégions le parcours le plus utile pour un développeur Swift ou Python dans l'écosystème Apple.
 </Note>
 
 ## Qu'est-ce que MLX ?
 
-**MLX** est un framework open-source d'Apple, conçu exclusivement pour Apple Silicon. C'est une bibliothèque flexible et efficace pour le calcul numérique et le machine learning, capable de couvrir des cas d'usage allant des opérations de base sur des tableaux jusqu'aux modèles de language frontier à grande échelle.
+**MLX** est un framework open source créé par Apple pour le calcul numérique et le machine learning. Il expose des API en `Python`, `Swift`, `C++` et `C`.
 
-MLX est sous licence MIT, dispose d'APIs en **Python, Swift, C++ et C**, et bénéficie d'une communauté active sur Hugging Face (la `mlx-community`).
+Pour ce site, retenez surtout trois idées :
+
+1. MLX est adapté aux machines Apple Silicon.
+2. Il sert autant à l'inférence qu'au fine-tuning.
+3. Il s'intègre bien avec un workflow mixte `Swift + Python`.
+
+Si vous voulez charger des modèles open weight, les exécuter localement, les quantifier ou les adapter à votre cas d'usage, MLX est une base solide.
 
 <CardGroup cols={2}>
-  <Card title="GitHub Officiel" icon="github" href="https://github.com/ml-explore/mlx">
-    24k ⭐ — Le repo principal MLX
+  <Card title="Repo officiel MLX" icon="github" href="https://github.com/ml-explore/mlx">
+    Le framework principal, maintenu dans l'organisation `ml-explore`.
   </Card>
-  <Card title="Documentation" icon="book" href="https://ml-explore.github.io/mlx">
-    Référence technique complète
+  <Card title="Documentation MLX" icon="book" href="https://ml-explore.github.io/mlx">
+    Référence technique pour les API et l'installation.
   </Card>
-  <Card title="WWDC25 Talk" icon="video" href="https://developer.apple.com/videos/play/wwdc2025/298">
-    Explore LLMs on Apple Silicon with MLX
+  <Card title="MLX Community" icon="users" href="https://huggingface.co/mlx-community">
+    Modèles déjà convertis et quantifiés pour MLX.
   </Card>
-  <Card title="MLX Community HF" icon="users" href="https://huggingface.co/mlx-community">
-    Milliers de modèles prêts à l'emploi
+  <Card title="Guide Foundation Models" icon="sparkles" href="/mlx/foundation-models/introduction">
+    Le framework système d'Apple pour l'IA intégrée dans vos apps Swift.
   </Card>
 </CardGroup>
 
 ---
 
-## La différence clé : Mémoire Unifiée
+## Pourquoi MLX intéresse les développeurs Apple
 
-L'architecture qui rend MLX exceptionnel est son modèle de **mémoire unifiée** (Unified Memory).
+### Une mémoire unifiée plus simple à exploiter
 
-Dans les frameworks traditionnels comme PyTorch, la donnée doit être explicitement déplacée entre CPU et GPU. Avec MLX, les tableaux vivent dans une mémoire partagée — les opérations peuvent s'exécuter indifféremment sur le CPU ou le GPU **sans aucune copie de données**.
+Sur Apple Silicon, CPU et GPU partagent la même mémoire physique. MLX s'appuie sur cette architecture pour éviter une grande partie des copies que vous gérez ailleurs plus explicitement.
 
 ```python
 import mlx.core as mx
 
-# Créer un tableau en mémoire unifiée
-a = mx.array([1, 2, 3, 4])
+x = mx.array([1, 2, 3, 4])
+y = mx.square(x)
 
-# L'opération s'exécute sur GPU via Metal
-b = mx.square(a)
-
-# Ou forcer le CPU si besoin
 with mx.stream(mx.cpu):
-    c = mx.sum(a)
+    total = mx.sum(x)
 ```
 
-<Info>
-Contrairement à CUDA (NVIDIA) ou ROCm (AMD), MLX n'a pas besoin que vous spécifiiez si la donnée est "en GPU" ou "en CPU" — elle est toujours accessible des deux côtés simultanément.
-</Info>
+Vous manipulez les tableaux avec une API proche de NumPy, sans passer votre temps à déplacer les données entre plusieurs espaces mémoire.
+
+### Une API pensée pour le calcul moderne
+
+MLX combine :
+
+- des tableaux et opérations vectorisées
+- des modules de réseau de neurones
+- l'autodifférentiation
+- la compilation et l'évaluation différée de certaines opérations
+
+Si vous venez de `NumPy`, `PyTorch` ou `Swift for TensorFlow`, la logique générale reste familière.
+
+### Un bon point d'entrée pour les LLMs sur Mac
+
+Dans la pratique, beaucoup de développeurs découvrent MLX via `mlx-lm`, le package de l'écosystème qui simplifie :
+
+- le chargement de modèles
+- la génération de texte
+- la quantification
+- le fine-tuning LoRA et QLoRA
+- l'exposition d'un serveur local compatible API
 
 ---
 
-## Fonctionnalités Clés
+## Ce que MLX n'est pas
 
-<AccordionGroup>
-  <Accordion title="⚡ Évaluation Lazy (Lazy Evaluation)" icon="bolt">
-    Au lieu d'exécuter chaque opération immédiatement, MLX construit un graphe de calcul qui n'est exécuté que lorsque le résultat est nécessaire. Cela permet d'optimiser les chaînes d'opérations et de réduire les allers-retours mémoire.
+MLX n'est pas le framework système qui vous donne accès au modèle Apple intégré à l'OS. Pour cela, Apple propose **Foundation Models** côté Swift.
 
-    ```python
-    # Le calcul n'est pas encore exécuté ici...
-    result = mx.exp(mx.array([1.0, 2.0, 3.0]))
-    # ...mais seulement quand on demande la valeur
-    mx.eval(result)
-    print(result)
-    ```
-  </Accordion>
+En clair :
 
-  <Accordion title="🔄 Transformations de Fonctions" icon="arrows-rotate">
-    MLX peut prendre des fonctions en entrée et retourner de nouvelles fonctions — ce qui facilite la différentiation automatique, la vectorisation et les optimisations de graphes.
+- utilisez **Foundation Models** si vous voulez exploiter le modèle système Apple dans une app Swift
+- utilisez **MLX** si vous voulez travailler avec vos propres modèles open weight, en Python ou en Swift
 
-    ```python
-    import mlx.core as mx
-
-    def fn(x):
-        return mx.sum(mx.square(x))
-
-    # Gradient automatique
-    grad_fn = mx.grad(fn)
-    x = mx.array([1.0, 2.0, 3.0])
-    print(grad_fn(x))  # [2.0, 4.0, 6.0]
-    ```
-  </Accordion>
-
-  <Accordion title="📐 API Familière (NumPy-like)" icon="code">
-    L'API MLX suit de près NumPy. Si vous connaissez NumPy ou PyTorch, vous serez immédiatement à l'aise avec MLX.
-
-    ```python
-    import mlx.core as mx
-    import mlx.nn as nn
-
-    # Similaire à torch.nn
-    model = nn.Sequential(
-        nn.Linear(784, 256),
-        nn.ReLU(),
-        nn.Linear(256, 10)
-    )
-    ```
-  </Accordion>
-
-  <Accordion title="🚀 Accélération Metal GPU" icon="gpu-card">
-    MLX utilise **Metal**, le framework de compute GPU d'Apple, pour accélérer toutes les opérations. Sur les puces M5, avec les nouveaux Neural Accelerators, les workloads LLM peuvent être jusqu'à **4x plus rapides** en time-to-first-token par rapport à un M4 de base.
-  </Accordion>
-</AccordionGroup>
+Les deux approches sont complémentaires.
 
 ---
 
-## Architecture MLX
+## Comment penser l'écosystème
 
-```
-┌─────────────────────────────────────────┐
-│              Applications               │
-│  (mlx-lm, MLX-VLM, SiLLM, etc.)        │
-├─────────────────────────────────────────┤
-│           MLX Python / Swift API        │
-├──────────────────┬──────────────────────┤
-│   Lazy Graph     │   Function           │
-│   Evaluation     │   Transforms         │
-├──────────────────┴──────────────────────┤
-│         Unified Memory Model            │
-├──────────────┬──────────────────────────┤
-│  CPU Backend │  Metal GPU Backend       │
-│  (ARM NEON)  │  (Apple Silicon GPU)     │
-└──────────────┴──────────────────────────┘
-```
+### MLX
 
----
+Le framework de base pour le calcul, les modèles et les opérations bas niveau.
 
-## Pourquoi MLX plutôt que les alternatives ?
+### `mlx-lm`
 
-| Framework     | Token/s (M3 Max) | Mémoire | Facilité d'usage |
-|---------------|-----------------|---------|-----------------|
-| **MLX**       | 🥇 Le plus élevé | Unifiée | ⭐⭐⭐⭐⭐ |
-| MLC-LLM       | 🥈 TTFT plus court | Configurable | ⭐⭐⭐⭐ |
-| llama.cpp     | 🥉 Léger, efficace | Bas | ⭐⭐⭐⭐ |
-| Ollama        | Ergonomie +++  | Moyen | ⭐⭐⭐⭐⭐ |
-| PyTorch MPS   | Généraliste    | Standard | ⭐⭐⭐ |
+La couche la plus pratique pour les LLMs en Python. C'est souvent votre point d'entrée si vous voulez aller vite.
 
-> Source : [Production-Grade Local LLM Inference on Apple Silicon](https://arxiv.org/abs/2511.05502) — Comparative Study
+### `mlx-swift` et les exemples Swift
+
+Les briques Swift pour charger des modèles MLX dans une app Apple, généralement avec plus de contrôle mais aussi plus de responsabilités qu'avec Foundation Models.
+
+### `mlx-community`
+
+L'organisation Hugging Face où vous trouvez des modèles déjà préparés pour MLX.
 
 ---
 
-## L'Écosystème MLX
+## Quand choisir MLX
 
-L'écosystème officiel d'Apple comprend plusieurs repos :
+Choisissez MLX si vous voulez :
 
-| Repo | Stars | Description |
-|------|-------|-------------|
-| [ml-explore/mlx](https://github.com/ml-explore/mlx) | 24k ⭐ | Framework core |
-| [ml-explore/mlx-examples](https://github.com/ml-explore/mlx-examples) | 8.3k ⭐ | Exemples pratiques |
-| [ml-explore/mlx-lm](https://github.com/ml-explore/mlx-lm) | 3.9k ⭐ | LLMs avec MLX |
-| [ml-explore/mlx-swift-examples](https://github.com/ml-explore/mlx-swift-examples) | 2.4k ⭐ | Intégration Swift |
+- exécuter un modèle open weight localement sur Mac
+- fine-tuner un modèle avec LoRA ou QLoRA
+- garder la main sur le modèle, ses poids et sa distribution
+- combiner un backend Python avec une app Swift
+
+Ne partez pas sur MLX en premier si votre besoin est simplement d'ajouter de la génération de texte on-device dans une app Swift moderne et que le modèle système Apple suffit. Dans ce cas, commencez par Foundation Models.
 
 ---
+
+## La suite logique
+
+1. Installez `mlx` et `mlx-lm`.
+2. Lancez un premier modèle avec la CLI.
+3. Passez ensuite soit vers le fine-tuning, soit vers l'intégration Swift selon votre objectif.
 
 <CardGroup cols={2}>
-  <Card title="Installation & Setup" icon="download" href="/mlx/installation">
-    Commencer en 2 minutes →
+  <Card title="Installation et setup" icon="download" href="/mlx/installation">
+    Préparer un environnement propre pour MLX et `mlx-lm`.
   </Card>
-  <Card title="Apple Foundation Models" icon="apple" href="/mlx/foundation-models/introduction">
-    L'IA on-device intégrée dans SwiftUI (iOS 26+) →
+  <Card title="Prise en main rapide" icon="rocket" href="/mlx/quickstart">
+    Générer du texte en quelques commandes.
   </Card>
 </CardGroup>
