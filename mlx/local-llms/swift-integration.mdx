@@ -157,6 +157,20 @@ Passez à Core ML lorsque vous avez une contrainte précise de packaging ou de d
 
 ---
 
+## Trois axes pour décider
+
+Quand vous hésitez entre ces approches, comparez-les sur trois axes très concrets :
+
+| Axe | Foundation Models | MLX Swift | Serveur local |
+|-----|-------------------|-----------|---------------|
+| Gestion du modèle | Apple fournit et prépare le modèle système | Vous chargez, distribuez et maintenez le modèle dans l'app | Vous maintenez un backend local séparé de l'app |
+| Contrôle des poids | Très faible | Total | Total, mais côté backend |
+| Coût d'intégration | Le plus faible côté app | Le plus élevé côté app | Moyen : UI simple, backend à opérer |
+
+Pour un développeur Swift de niveau intermédiaire, ce tableau évite une confusion fréquente : la solution la plus puissante n'est pas toujours la plus rentable à intégrer.
+
+---
+
 ## Quelle option choisir ?
 
 | Besoin | Option recommandée |
