@@ -1,93 +1,197 @@
 ---
 title: "Installation & Setup"
-description: "Installer MLX et mlx-lm sur votre Mac pour travailler avec des modèles locaux"
+description: "Installer MLX et mlx-lm sur votre Mac pour exécuter des modèles locaux"
 icon: "wrench"
 ---
 
 ## Avant de commencer
 
+Dans ce guide, vous installez **MLX** et **`mlx-lm`** ensemble :
+
+- `mlx` fournit les briques de calcul optimisées pour Apple Silicon
+- `mlx-lm` ajoute les outils LLM utiles au quotidien : chargement de modèles, génération, conversion, quantification, fine-tuning et serveur local
+
+Si votre objectif est de lancer des modèles locaux, installez les deux dès le départ.
+
 Ce guide cible le cas le plus simple et le plus courant :
 
 - un Mac avec Apple Silicon
-- un Python natif ARM
+- un Python natif `arm64`
 - un environnement virtuel dédié au projet
 
 <Warning>
-Si votre terminal ou votre Python tourne sous Rosetta, vous risquez des erreurs de dépendances ou des performances incohérentes. Vérifiez d'abord votre environnement.
+Si votre terminal ou votre Python tourne sous Rosetta, vous risquez des erreurs de dépendances ou des performances incohérentes.
 </Warning>
 
 ### Vérifier l'architecture de Python
 
 ```bash
-python -c "import platform; print(platform.machine())"
+python3 -c "import platform; print(platform.machine())"
 ```
 
 Sur Apple Silicon, vous voulez voir `arm64`.
 
-Si ce n'est pas le cas, installez un Python natif via Homebrew, `pyenv` ou le site officiel de Python, puis recréez votre environnement virtuel.
+---
+
+## Installer Python
+
+Vous avez deux approches raisonnables :
+
+- la voie classique : vous installez Python vous-même, puis vous créez un `venv`
+- la voie `uv` : `uv` peut installer Python, créer l'environnement et piloter les commandes
+
+### Option 1 : installation classique
+
+La voie classique convient si vous utilisez déjà :
+
+- l'installateur officiel Python
+- Homebrew
+- `pyenv`
+
+Si `python` n'existe pas dans votre shell, testez d'abord :
+
+```bash
+python3 --version
+python3.11 --version
+```
+
+Si `python3.11` fonctionne mais pas `python`, vous pouvez quand même avancer avec `python3.11`.
+
+### Option 2 : installation via `uv`
+
+Si vous partez de zéro, `uv` simplifie souvent le setup :
+
+```bash
+brew install uv
+uv python install 3.11
+```
+
+Vous obtenez ainsi une version de Python exploitable sans passer par `pyenv`.
+
+<Tip>
+Si vous débutez ou si votre shell mélange plusieurs installations Python, `uv` est souvent la voie la plus simple à documenter et à reproduire.
+</Tip>
 
 ---
 
-## Installer MLX dans un environnement propre
+## Installer MLX et `mlx-lm`
+
+### Méthode classique avec `venv`
+
+Créez un environnement propre, activez-le, puis installez les deux paquets :
+
+```bash
+python3.11 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+pip install mlx mlx-lm
+```
+
+Si la commande `python` existe déjà correctement sur votre machine, vous pouvez aussi utiliser :
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
-pip install mlx
+pip install mlx mlx-lm
 ```
 
-### Vérifier l'installation
+### Méthode avec `uv`
+
+`uv` peut gérer Python, l'environnement virtuel et l'installation des paquets :
 
 ```bash
-python -c "import mlx.core as mx; print(mx.array([1, 2, 3]))"
+uv python install 3.11
+uv venv --python 3.11 .venv
+source .venv/bin/activate
+uv pip install mlx mlx-lm
 ```
 
-Si vous voyez un tableau s'afficher, MLX est installé correctement.
-
----
-
-## Installer `mlx-lm`
-
-`mlx-lm` ajoute les outils orientés LLM :
-
-- génération de texte
-- chargement de modèles depuis Hugging Face
-- conversion et quantification
-- fine-tuning LoRA et QLoRA
-- serveur local compatible API
+Si vous préférez ne pas activer l'environnement, vous pouvez aussi travailler sans `source` :
 
 ```bash
-pip install -U mlx-lm
+uv python install 3.11
+uv venv --python 3.11 .venv
+uv pip install --python .venv/bin/python mlx mlx-lm
+uv run --python .venv/bin/python mlx_lm.generate \
+  --model mlx-community/Llama-3.2-3B-Instruct-4bit \
+  --prompt "Explique MLX en deux phrases simples."
 ```
 
-Si vous prévoyez de télécharger, publier ou manipuler des datasets, ajoutez aussi :
+### Pourquoi ajouter `pandas` et `huggingface_hub`
+
+Pour une simple génération locale, `mlx` et `mlx-lm` suffisent.
+
+Ajoutez ces paquets si vous allez plus loin :
+
+- `pandas` est pratique pour préparer, filtrer ou convertir des datasets en `csv`, `jsonl` ou tableaux avant un fine-tuning
+- `huggingface_hub` permet de télécharger, publier et manipuler des dépôts Hugging Face en Python
+- `"huggingface_hub[cli]"` ajoute les commandes CLI comme `hf` ou `huggingface-cli`, utiles pour se connecter, télécharger ou pousser un modèle depuis le terminal
 
 ```bash
 pip install pandas huggingface_hub "huggingface_hub[cli]"
 ```
 
+Avec `uv` :
+
+```bash
+uv pip install pandas huggingface_hub "huggingface_hub[cli]"
+```
+
 ---
 
-## Premier test avec un modèle local
+## Vérifier l'installation
+
+Vérifiez d'abord la couche MLX :
+
+```bash
+python -c "import mlx.core as mx; print(mx.array([1, 2, 3]))"
+```
+
+Puis vérifiez la couche LLM :
 
 ```bash
 mlx_lm.generate \
   --model mlx-community/Llama-3.2-3B-Instruct-4bit \
-  --prompt "Explique MLX en deux phrases simples."
+  --prompt "Explique la différence entre MLX et Foundation Models."
 ```
 
 Au premier lancement, `mlx-lm` télécharge le modèle depuis Hugging Face puis le réutilise depuis le cache local.
 
 <Tip>
-Pour découvrir MLX, commencez avec un modèle compact en `4bit`. Le téléchargement est plus léger et vous évitez les erreurs mémoire sur une machine modeste.
+Commencez avec un modèle compact en `4bit`. Le téléchargement est plus léger et vous réduisez le risque d'erreur mémoire.
 </Tip>
+
+---
+
+## Activer et quitter l'environnement
+
+### Avec la méthode classique
+
+Pour entrer dans l'environnement :
+
+```bash
+source .venv/bin/activate
+```
+
+Pour le quitter :
+
+```bash
+deactivate
+```
+
+### Avec `uv`
+
+Deux usages sont possibles :
+
+- si vous avez activé `.venv` avec `source .venv/bin/activate`, vous le quittez aussi avec `deactivate`
+- si vous utilisez `uv run` sans activation, vous n'avez rien à quitter
 
 ---
 
 ## Connexion à Hugging Face
 
-Vous pouvez travailler sans compte pour beaucoup de modèles publics. En revanche, connectez-vous si vous voulez :
+Vous pouvez travailler sans compte pour beaucoup de modèles publics. Connectez-vous seulement si vous voulez :
 
 - accéder à un dépôt privé
 - publier un modèle converti
@@ -97,23 +201,66 @@ Vous pouvez travailler sans compte pour beaucoup de modèles publics. En revanch
 huggingface-cli login
 ```
 
+Si vous avez installé l'extra CLI, vous pouvez aussi utiliser :
+
+```bash
+hf auth login
+```
+
 ---
 
 ## Installer les outils Swift
 
-Si votre objectif principal est une app Swift qui charge un modèle MLX, ajoutez le package `mlx-swift` dans Xcode ou via Swift Package Manager :
+Cette partie ne concerne que le cas où vous voulez charger un modèle MLX dans une app Swift.
+
+Si vous travaillez dans un **Swift package**, modifiez le fichier `Package.swift`.
 
 ```swift
-dependencies: [
-    .package(
-        url: "https://github.com/ml-explore/mlx-swift",
-        branch: "main"
-    )
-]
+// Package.swift
+import PackageDescription
+
+let package = Package(
+    name: "MyApp",
+    dependencies: [
+        .package(
+            url: "https://github.com/ml-explore/mlx-swift",
+            branch: "main"
+        )
+    ],
+    targets: [
+        .executableTarget(
+            name: "MyApp",
+            dependencies: [
+                .product(name: "MLX", package: "mlx-swift"),
+                .product(name: "MLXLLM", package: "mlx-swift"),
+                .product(name: "MLXLMCommon", package: "mlx-swift")
+            ]
+        )
+    ]
+)
+```
+
+Puis résolvez et compilez :
+
+```bash
+swift package resolve
+swift build
+```
+
+Si vous travaillez dans une **app Xcode**, le plus simple est d'utiliser `File > Add Package Dependencies...` avec :
+
+```text
+https://github.com/ml-explore/mlx-swift
+```
+
+Xcode mettra à jour la configuration du projet pour vous. Vous pouvez ensuite vérifier la résolution des dépendances en CLI :
+
+```bash
+xcodebuild -resolvePackageDependencies -scheme MyApp
 ```
 
 <Info>
-Si vous voulez utiliser le modèle système Apple dans une app Swift, vous n'avez pas besoin d'installer MLX. Regardez plutôt la section [Foundation Models](/mlx/foundation-models/introduction).
+Si vous voulez utiliser le modèle système Apple dans une app Swift, vous n'avez pas besoin d'installer MLX, `mlx-lm` ou `mlx-swift`. Dans ce cas, vous utilisez le framework `FoundationModels` fourni par Apple et vous travaillez directement avec `LanguageModelSession`, `SystemLanguageModel` et les APIs système. Commencez plutôt par [Foundation Models](/mlx/foundation-models/introduction).
 </Info>
 
 ---
@@ -121,16 +268,93 @@ Si vous voulez utiliser le modèle système Apple dans une app Swift, vous n'ave
 ## Problèmes fréquents
 
 <AccordionGroup>
-  <Accordion title="`pip` ne trouve pas le package" icon="triangle-exclamation">
-    Vérifiez d'abord la version de Python et son architecture. Le problème vient souvent d'un Python non compatible ou lancé sous Rosetta.
+  <Accordion title="`pyenv: python: command not found`" icon="triangle-exclamation">
+    Ce cas arrive quand `pyenv` connaît une version Python, mais qu'aucune version exploitable n'est activée pour la commande `python` dans votre shell actuel.
+
+    Vérifiez d'abord l'état de `pyenv` :
+
+    ```bash
+    pyenv versions
+    pyenv version
+    ```
+
+    Si `3.11.9` est installée mais pas activée, essayez :
+
+    ```bash
+    pyenv global 3.11.9
+    pyenv rehash
+    python --version
+    ```
+
+    Si `python` ne marche toujours pas dans le même terminal, initialisez `pyenv` dans `zsh` :
+
+    ```bash
+    eval "$(pyenv init - zsh)"
+    pyenv global 3.11.9
+    pyenv rehash
+    python --version
+    ```
+
+    Pour rendre cela persistant, ajoutez `pyenv` à votre fichier `~/.zshrc` puis rechargez votre shell :
+
+    ```bash
+    export PYENV_ROOT="$HOME/.pyenv"
+    [[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
+    eval "$(pyenv init - zsh)"
+    ```
+
+    Si vous voulez avancer tout de suite, contournez le problème avec :
+
+    ```bash
+    python3.11 -m venv .venv
+    source .venv/bin/activate
+    python -m pip install --upgrade pip
+    pip install mlx mlx-lm
+    ```
   </Accordion>
 
-  <Accordion title="`ModuleNotFoundError: No module named mlx`" icon="triangle-exclamation">
-    Activez le bon environnement virtuel avant d'exécuter vos scripts :
+  <Accordion title="`source .venv/bin/activate`: no such file or directory" icon="triangle-exclamation">
+    Dans votre cas, cette erreur est une conséquence directe de l'étape précédente : l'environnement n'a jamais été créé, car `python -m venv .venv` a échoué.
+
+    Vérifiez d'abord que la création du `venv` fonctionne :
+
+    ```bash
+    python3.11 -m venv .venv
+    ls .venv/bin/activate
+    ```
+
+    Si le fichier existe, l'activation suivante doit fonctionner :
 
     ```bash
     source .venv/bin/activate
-    pip show mlx
+    ```
+  </Accordion>
+
+  <Accordion title="`pip` ou `python` ne sont trouvés qu'après activation" icon="triangle-exclamation">
+    C'est normal si vous avez créé l'environnement avec `python3.11` mais que la commande globale `python` n'existe pas hors du `venv`.
+
+    Une fois `.venv` activé, `python` et `pip` pointent en général vers l'environnement virtuel :
+
+    ```bash
+    source .venv/bin/activate
+    which python
+    which pip
+    python --version
+    pip --version
+    ```
+
+    Si ces commandes répondent dans le `venv`, vous pouvez continuer normalement.
+  </Accordion>
+
+  <Accordion title="`mlx_lm.generate` n'existe pas" icon="triangle-exclamation">
+    Le paquet `mlx` seul ne suffit pas. La commande `mlx_lm.generate` vient de `mlx-lm`.
+
+    Réinstallez explicitement les deux paquets dans l'environnement actif :
+
+    ```bash
+    source .venv/bin/activate
+    pip install -U mlx mlx-lm
+    which mlx_lm.generate
     ```
   </Accordion>
 
@@ -138,8 +362,12 @@ Si vous voulez utiliser le modèle système Apple dans une app Swift, vous n'ave
     Commencez avec un modèle plus petit ou déjà quantifié en `4bit`. Fermez aussi les applications qui consomment beaucoup de mémoire unifiée.
   </Accordion>
 
-  <Accordion title="Je développe en Swift et je ne sais pas par où commencer" icon="circle-question">
-    Si vous voulez un modèle Apple prêt à l'emploi dans une app Swift, partez sur Foundation Models. Si vous voulez embarquer un modèle open weight précis, regardez `mlx-swift` ou une intégration HTTP vers un serveur local.
+  <Accordion title="Je développe en Swift et je ne sais pas quoi installer" icon="circle-question">
+    Choisissez selon votre objectif :
+
+    - pour une app Swift qui exploite le modèle système Apple, utilisez `FoundationModels` et n'installez pas MLX
+    - pour embarquer un modèle open weight précis dans l'app, ajoutez `mlx-swift`
+    - pour garder l'app légère, servez le modèle à part avec `mlx_lm.server` puis appelez-le en HTTP
   </Accordion>
 </AccordionGroup>
 
